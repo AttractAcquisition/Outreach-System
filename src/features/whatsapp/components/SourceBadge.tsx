@@ -1,4 +1,4 @@
-import { Megaphone, Send, Globe, UserSquare2 } from "lucide-react";
+import { CircleHelp, Globe, Megaphone, Send, Share2, UserSquare2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConversationSource } from "../types";
 
@@ -10,6 +10,8 @@ const map: Record<
   Outbound: { icon: Send, cls: "bg-secondary text-foreground border-border" },
   Manual: { icon: UserSquare2, cls: "bg-secondary text-foreground border-border" },
   Website: { icon: Globe, cls: "bg-secondary text-foreground border-border" },
+  Referral: { icon: Share2, cls: "bg-secondary text-foreground border-border" },
+  Unknown: { icon: CircleHelp, cls: "bg-muted text-muted-foreground border-border" },
 };
 
 export function SourceBadge({

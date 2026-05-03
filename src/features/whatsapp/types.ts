@@ -13,12 +13,27 @@ export type CrmStage =
   | "Not Interested"
   | "Do Not Contact";
 
-export type ConversationSource = "Meta Ad" | "Outbound" | "Manual" | "Website";
+export type ConversationSource =
+  | "Meta Ad"
+  | "Outbound"
+  | "Manual"
+  | "Website"
+  | "Referral"
+  | "Unknown";
 
 export type ServiceWindowStatus = "open" | "closing_soon" | "closed";
 
 export type MessageDirection = "inbound" | "outbound" | "system";
-export type MessageType = "text" | "template" | "ai_draft" | "system";
+export type MessageType =
+  | "text"
+  | "image"
+  | "document"
+  | "audio"
+  | "video"
+  | "template"
+  | "interactive"
+  | "ai_draft"
+  | "system";
 export type MessageStatus =
   | "queued"
   | "sent"
@@ -30,10 +45,15 @@ export type MessageStatus =
 export interface WhatsAppConversation {
   id: string;
   prospect_id: string;
+  client_id?: string | null;
+  campaign_id?: string | null;
   business_name: string;
   contact_name: string;
   phone_number: string;
   source: ConversationSource;
+  source_key?: string;
+  status?: string;
+  stage?: string;
   crm_stage: CrmStage;
   lead_score: number;
   assigned_to: string;
@@ -45,6 +65,10 @@ export interface WhatsAppConversation {
   service_window_status: ServiceWindowStatus;
   opt_out: boolean;
   suppressed: boolean;
+  needs_human?: boolean;
+  ai_summary?: string | null;
+  ai_intent?: string | null;
+  ai_temperature?: string | null;
   tags: string[];
   niche?: string;
   location?: string;
@@ -57,10 +81,19 @@ export interface WhatsAppMessage {
   direction: MessageDirection;
   message_type: MessageType;
   body: string;
+  media_url?: string | null;
+  media_mime_type?: string | null;
   template_name?: string;
+  template_language?: string | null;
   template_params?: Record<string, string>;
   status: MessageStatus;
+  sender_type?: "contact" | "human" | "ai" | "system";
+  ai_generated?: boolean;
+  human_approved?: boolean;
+  approval_id?: string | null;
   created_at: string;
+  delivered_at?: string | null;
+  read_at?: string | null;
   sender_name?: string;
   meta_message_id?: string;
   error_message?: string;

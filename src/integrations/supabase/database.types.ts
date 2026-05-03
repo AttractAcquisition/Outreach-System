@@ -6058,6 +6058,216 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_conversations: {
+        Row: {
+          ai_intent: string | null
+          ai_summary: string | null
+          ai_temperature: string | null
+          assigned_to: string | null
+          campaign_id: string | null
+          client_id: string | null
+          contact_name: string | null
+          created_at: string
+          id: string
+          last_inbound_at: string | null
+          last_message_at: string | null
+          last_message_preview: string | null
+          last_outbound_at: string | null
+          metadata: Json
+          needs_human: boolean
+          phone_number: string
+          prospect_id: string | null
+          service_window_open_until: string | null
+          source: string
+          stage: string
+          status: string
+          unread_count: number
+          updated_at: string
+          whatsapp_wa_id: string | null
+        }
+        Insert: {
+          ai_intent?: string | null
+          ai_summary?: string | null
+          ai_temperature?: string | null
+          assigned_to?: string | null
+          campaign_id?: string | null
+          client_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          last_outbound_at?: string | null
+          metadata?: Json
+          needs_human?: boolean
+          phone_number: string
+          prospect_id?: string | null
+          service_window_open_until?: string | null
+          source?: string
+          stage?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+          whatsapp_wa_id?: string | null
+        }
+        Update: {
+          ai_intent?: string | null
+          ai_summary?: string | null
+          ai_temperature?: string | null
+          assigned_to?: string | null
+          campaign_id?: string | null
+          client_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          last_outbound_at?: string | null
+          metadata?: Json
+          needs_human?: boolean
+          phone_number?: string
+          prospect_id?: string | null
+          service_window_open_until?: string | null
+          source?: string
+          stage?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+          whatsapp_wa_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          ai_generated: boolean
+          approval_id: string | null
+          body: string | null
+          client_id: string | null
+          conversation_id: string
+          created_at: string
+          delivered_at: string | null
+          direction: string
+          error_message: string | null
+          human_approved: boolean
+          id: string
+          media_mime_type: string | null
+          media_url: string | null
+          message_type: string
+          metadata: Json
+          prospect_id: string | null
+          read_at: string | null
+          sender_type: string
+          sent_by: string | null
+          status: string
+          template_language: string | null
+          template_name: string | null
+          whatsapp_message_id: string | null
+        }
+        Insert: {
+          ai_generated?: boolean
+          approval_id?: string | null
+          body?: string | null
+          client_id?: string | null
+          conversation_id: string
+          created_at?: string
+          delivered_at?: string | null
+          direction: string
+          error_message?: string | null
+          human_approved?: boolean
+          id?: string
+          media_mime_type?: string | null
+          media_url?: string | null
+          message_type?: string
+          metadata?: Json
+          prospect_id?: string | null
+          read_at?: string | null
+          sender_type?: string
+          sent_by?: string | null
+          status?: string
+          template_language?: string | null
+          template_name?: string | null
+          whatsapp_message_id?: string | null
+        }
+        Update: {
+          ai_generated?: boolean
+          approval_id?: string | null
+          body?: string | null
+          client_id?: string | null
+          conversation_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          direction?: string
+          error_message?: string | null
+          human_approved?: boolean
+          id?: string
+          media_mime_type?: string | null
+          media_url?: string | null
+          message_type?: string
+          metadata?: Json
+          prospect_id?: string | null
+          read_at?: string | null
+          sender_type?: string
+          sent_by?: string | null
+          status?: string
+          template_language?: string | null
+          template_name?: string | null
+          whatsapp_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "approval_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       aa_chunks: {

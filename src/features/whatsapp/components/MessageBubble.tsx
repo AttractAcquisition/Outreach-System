@@ -21,6 +21,14 @@ function StatusIcon({ status }: { status: WhatsAppMessage["status"] }) {
   return null;
 }
 
+function senderLabel(message: WhatsAppMessage) {
+  if (message.sender_type === "ai") return "AI";
+  if (message.sender_type === "human") return "Human";
+  if (message.sender_type === "system") return "System";
+  if (message.direction === "inbound") return "Contact";
+  return "Operator";
+}
+
 export function MessageBubble({ message }: { message: WhatsAppMessage }) {
   if (message.direction === "system") {
     return (
@@ -69,15 +77,29 @@ export function MessageBubble({ message }: { message: WhatsAppMessage }) {
             )}
           </div>
         )}
+        <div
+          className={cn(
+            "mb-1 text-[10px] font-medium uppercase tracking-wide",
+            isOut ? "text-primary-foreground/75" : "text-muted-foreground",
+          )}
+        >
+          {senderLabel(message)}
+          {message.human_approved && " · Approved"}
+        </div>
         <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.body}</p>
         <div
           className={cn(
-            "mt-1 flex items-center justify-end gap-1 text-[10px]",
+            "mt-1 flex items-center justify-end gap-1.5 text-[10px]",
             isOut ? "text-primary-foreground/80" : "text-muted-foreground",
           )}
         >
           <span>{timeShort(message.created_at)}</span>
-          {isOut && <StatusIcon status={message.status} />}
+          {isOut && (
+            <>
+              <span>{message.status}</span>
+              <StatusIcon status={message.status} />
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -19,10 +19,10 @@ const FILTER_CHIPS = [
   "Unread",
   "Window Open",
   "Window Closed",
-  "Interested",
+  "Needs Human",
   "Needs Reply",
   "Booked Call",
-  "Do Not Contact",
+  "Archived",
 ] as const;
 
 type ChipFilter = (typeof FILTER_CHIPS)[number];
@@ -75,14 +75,14 @@ export function ConversationList({
           return c.service_window_status === "open";
         case "Window Closed":
           return c.service_window_status === "closed";
-        case "Interested":
-          return c.crm_stage === "Interested" || c.crm_stage === "Qualified";
+        case "Needs Human":
+          return !!c.needs_human;
         case "Needs Reply":
-          return c.unread_count > 0 || c.crm_stage === "Replied";
+          return c.stage === "needs_reply" || c.unread_count > 0;
         case "Booked Call":
-          return c.crm_stage === "Call Booked";
-        case "Do Not Contact":
-          return c.crm_stage === "Do Not Contact" || c.suppressed;
+          return c.stage === "booked";
+        case "Archived":
+          return c.status === "archived";
         default:
           return true;
       }
@@ -175,7 +175,7 @@ export function ConversationList({
           <EmptyState
             icon={MessagesSquare}
             title="No conversations"
-            description="No conversation data source is connected yet."
+            description="No WhatsApp conversations yet. Once inbound messages or approved outbound outreach starts, conversations will appear here."
           />
         ) : (
           filtered.map((c) => (

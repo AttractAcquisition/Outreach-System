@@ -153,7 +153,7 @@ export function ConversationThread({
         ) : messages.length === 0 ? (
           <EmptyState
             title="No messages yet"
-            description="No message data source is connected yet."
+            description="This conversation has no messages yet."
           />
         ) : (
           messages.map((m) => <MessageBubble key={m.id} message={m} />)

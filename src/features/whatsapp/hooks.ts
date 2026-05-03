@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { getWhatsAppConversations, getWhatsAppMessages } from "./api";
 import type {
   CampaignLead,
   CrmStage,
@@ -13,8 +14,32 @@ import type {
 
 // ─── Conversations ───────────────────────────────────────────────
 export function useWhatsAppConversations() {
-  // TODO: Connect this hook to the real conversations/prospects Supabase source once available.
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadConversations = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const rows = await getWhatsAppConversations();
+      setConversations(rows);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not load WhatsApp conversations",
+      );
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
 
   const updateConversation = useCallback(
     (id: string, patch: Partial<WhatsAppConversation>) => {
@@ -27,16 +52,48 @@ export function useWhatsAppConversations() {
 
   return {
     conversations,
-    loading: false,
-    error: null as string | null,
+    loading,
+    error,
+    reload: loadConversations,
     updateConversation,
   };
 }
 
 // ─── Messages for a conversation ─────────────────────────────────
 export function useConversationMessages(conversationId: string | null) {
-  // TODO: Connect this hook to the real WhatsApp messages Supabase source once available.
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMessages = useCallback(async () => {
+    if (!conversationId) {
+      setMessages([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const rows = await getWhatsAppMessages(conversationId);
+      setMessages(rows);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not load WhatsApp messages",
+      );
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    void loadMessages();
+  }, [loadMessages]);
 
   const appendMessage = useCallback((msg: WhatsAppMessage) => {
     setMessages((prev) => [...prev, msg]);
@@ -44,8 +101,9 @@ export function useConversationMessages(conversationId: string | null) {
 
   return {
     messages: conversationId ? messages : [],
-    loading: false,
-    error: null as string | null,
+    loading,
+    error,
+    reload: loadMessages,
     appendMessage,
   };
 }

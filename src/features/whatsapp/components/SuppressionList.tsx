@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useSuppressionList } from "../hooks";
 import { ConfirmActionModal } from "./ConfirmActionModal";
+import { EmptyState } from "./EmptyState";
 import type { SuppressionReason, SuppressionRecord } from "../types";
 
 const REASONS: SuppressionReason[] = [
@@ -40,7 +41,7 @@ const REASONS: SuppressionReason[] = [
 ];
 
 export function SuppressionList() {
-  const { records, add, remove } = useSuppressionList();
+  const { records, loading, error, add, remove } = useSuppressionList();
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<SuppressionRecord | null>(null);
@@ -90,49 +91,61 @@ export function SuppressionList() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card/60 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Phone</TableHead>
-              <TableHead>Business</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Added</TableHead>
-              <TableHead>By</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-medium">
-                  <span className="inline-flex items-center gap-1.5">
-                    <ShieldX className="h-3.5 w-3.5 text-destructive" />
-                    {r.phone_number}
-                  </span>
-                </TableCell>
-                <TableCell>{r.business_name}</TableCell>
-                <TableCell>{r.reason}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{r.source}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">
-                  {new Date(r.created_at).toLocaleDateString()}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-xs">{r.created_by}</TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmRemove(r)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
+      {loading ? (
+        <div className="h-32 rounded-2xl bg-card/40 border border-border animate-pulse" />
+      ) : error ? (
+        <EmptyState icon={ShieldX} title="Could not load suppression list" description={error} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={ShieldX}
+          title="No suppressed contacts"
+          description="No suppression list data source is connected yet."
+        />
+      ) : (
+        <div className="rounded-2xl border border-border bg-card/60 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Phone</TableHead>
+                <TableHead>Business</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Added</TableHead>
+                <TableHead>By</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <ShieldX className="h-3.5 w-3.5 text-destructive" />
+                      {r.phone_number}
+                    </span>
+                  </TableCell>
+                  <TableCell>{r.business_name}</TableCell>
+                  <TableCell>{r.reason}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{r.source}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{r.created_by}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmRemove(r)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="rounded-2xl">

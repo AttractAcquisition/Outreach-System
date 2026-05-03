@@ -25,7 +25,7 @@ const STATUS_CLS: Record<TemplateStatus, string> = {
 };
 
 export function TemplateManager() {
-  const { templates, loading } = useWhatsAppTemplates();
+  const { templates, loading, error } = useWhatsAppTemplates();
   const [selectedId, setSelectedId] = useState<string>(templates[0]?.id ?? "");
   const [vars, setVars] = useState<Record<string, string>>({});
 
@@ -52,12 +52,22 @@ export function TemplateManager() {
     );
   }
 
+  if (error) {
+    return (
+      <EmptyState
+        icon={FileText}
+        title="Could not load templates"
+        description={error}
+      />
+    );
+  }
+
   if (templates.length === 0) {
     return (
       <EmptyState
         icon={FileText}
         title="No templates yet"
-        description="Once Meta-approved templates sync, they will appear here."
+        description="No WhatsApp template data source is connected yet."
       />
     );
   }
@@ -164,7 +174,7 @@ export function TemplateManager() {
             <Button
               size="sm"
               className="bg-gradient-brand text-primary-foreground hover:opacity-90"
-              onClick={() => toast.success("Outreach queue item created")}
+              onClick={() => toast.error("Outreach queue data source is not configured")}
             >
               <Send className="h-4 w-4" /> Create outreach
             </Button>

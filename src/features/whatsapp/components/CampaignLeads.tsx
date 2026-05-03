@@ -23,7 +23,7 @@ interface Props {
 }
 
 export function CampaignLeads({ onOpenInInbox }: Props) {
-  const { leads, loading } = useCampaignLeads();
+  const { leads, loading, error } = useCampaignLeads();
   const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]>("All");
   const [query, setQuery] = useState("");
 
@@ -103,11 +103,17 @@ export function CampaignLeads({ onOpenInInbox }: Props) {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {error ? (
+        <EmptyState
+          icon={Megaphone}
+          title="Could not load campaign leads"
+          description={error}
+        />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={Megaphone}
           title="No campaign leads"
-          description="Inbound Meta Click-to-WhatsApp leads will appear here."
+          description="No campaign lead data source is connected yet."
         />
       ) : (
         <div className="grid gap-2">
@@ -140,13 +146,13 @@ export function CampaignLeads({ onOpenInInbox }: Props) {
                 >
                   <MessagesSquare className="h-4 w-4" /> Open in inbox
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => toast("AI reply suggestion generated")}>
+                <Button size="sm" variant="outline" onClick={() => toast.error("AI reply generation is not connected to a backend yet")}>
                   <Sparkles className="h-4 w-4" /> Generate reply
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => toast.success("Marked qualified")}>
+                <Button size="sm" variant="secondary" onClick={() => toast.error("Lead qualification updates are not connected to a backend yet")}>
                   <CheckCircle2 className="h-4 w-4" /> Mark qualified
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => toast.success("Call booked")}>
+                <Button size="sm" variant="ghost" onClick={() => toast.error("Call booking is not connected to a backend yet")}>
                   <CalendarPlus className="h-4 w-4" /> Book call
                 </Button>
               </div>

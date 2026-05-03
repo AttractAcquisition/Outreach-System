@@ -12,7 +12,7 @@ export function WhatsAppInbox({
 }: {
   initialConversationId?: string;
 }) {
-  const { conversations, loading, updateConversation } =
+  const { conversations, loading, error, updateConversation } =
     useWhatsAppConversations();
   const [selectedId, setSelectedId] = useState<string | null>(
     initialConversationId ?? null,
@@ -34,6 +34,7 @@ export function WhatsAppInbox({
         <ConversationList
           conversations={conversations}
           loading={loading}
+          error={error}
           selectedId={selectedId}
           onSelect={(id) => {
             setSelectedId(id);

@@ -40,7 +40,7 @@ export function ConversationThread({
   onOpenProspect,
   onUpdate,
 }: Props) {
-  const { messages, loading, appendMessage } = useConversationMessages(
+  const { messages, loading, error, appendMessage } = useConversationMessages(
     conversation?.id ?? null,
   );
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -145,10 +145,15 @@ export function ConversationThread({
               />
             ))}
           </div>
+        ) : error ? (
+          <EmptyState
+            title="Could not load messages"
+            description={error}
+          />
         ) : messages.length === 0 ? (
           <EmptyState
             title="No messages yet"
-            description="Once messages are exchanged they will appear here."
+            description="No message data source is connected yet."
           />
         ) : (
           messages.map((m) => <MessageBubble key={m.id} message={m} />)

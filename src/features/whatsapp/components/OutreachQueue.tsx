@@ -86,7 +86,7 @@ function StatCard({
 }
 
 export function OutreachQueue() {
-  const { queue, loading, update } = useOutreachQueue();
+  const { queue, loading, error, update } = useOutreachQueue();
   const { templates } = useWhatsAppTemplates();
   const [filter, setFilter] = useState<FilterTab>("Pending Approval");
   const [reviewing, setReviewing] = useState<OutreachQueueItem | null>(null);
@@ -158,11 +158,17 @@ export function OutreachQueue() {
             />
           ))}
         </div>
+      ) : error ? (
+        <EmptyState
+          icon={Inbox}
+          title="Could not load outreach queue"
+          description={error}
+        />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Inbox}
           title="Nothing in this queue"
-          description="New outreach drafts created by Claude or your VA will appear here."
+          description="No outreach queue data source is connected yet."
         />
       ) : (
         <div className="space-y-2">
@@ -172,16 +178,17 @@ export function OutreachQueue() {
               item={item}
               onReview={() => setReviewing(item)}
               onApprove={async () => {
-                await approveQueueItem(item.id);
-                update(item.id, {
-                  status: "Approved",
-                  approved_by: "Alex",
-                  approved_at: new Date().toISOString(),
-                });
+                const result = await approveQueueItem(item.id);
+                if (result.ok) {
+                  update(item.id, {
+                    status: "Approved",
+                    approved_at: new Date().toISOString(),
+                  });
+                }
               }}
               onReject={async () => {
-                await rejectQueueItem(item.id);
-                update(item.id, { status: "Cancelled" });
+                const result = await rejectQueueItem(item.id);
+                if (result.ok) update(item.id, { status: "Cancelled" });
               }}
             />
           ))}
@@ -405,8 +412,8 @@ function ReviewModal({
           <Button
             variant="secondary"
             onClick={async () => {
-              await rejectQueueItem(item.id);
-              onSave({ status: "Cancelled" });
+              const result = await rejectQueueItem(item.id);
+              if (result.ok) onSave({ status: "Cancelled" });
               onClose();
             }}
           >
@@ -429,15 +436,16 @@ function ReviewModal({
           confirmLabel="Approve & queue send"
           onConfirm={async () => {
             setConfirmCold(false);
-            await approveQueueItem(item.id);
-            onSave({
-              status: "Approved",
-              approved_by: "Alex",
-              approved_at: new Date().toISOString(),
-              template_params: vars,
-              template_name: templateName,
-              draft_preview: preview,
-            });
+            const result = await approveQueueItem(item.id);
+            if (result.ok) {
+              onSave({
+                status: "Approved",
+                approved_at: new Date().toISOString(),
+                template_params: vars,
+                template_name: templateName,
+                draft_preview: preview,
+              });
+            }
             onClose();
           }}
         />

@@ -27,6 +27,7 @@ import {
   saveInternalNote,
   updateCRMStage,
 } from "../hooks";
+import { EmptyState } from "./EmptyState";
 import type { CrmStage, WhatsAppConversation } from "../types";
 
 interface Props {
@@ -182,52 +183,27 @@ export function ProspectPanel({ conversation, onUpdate }: Props) {
       </Section>
 
       <Section icon={Activity} title="Qualification">
-        <Row label="Google listing" value="claimed" />
-        <Row label="Instagram active" value="no" />
-        <Row label="Meta ads running" value="no" />
-        <Row label="Website" value="average" />
-        <Row label="Reviews" value="38 · 4.2★" />
-        <Row label="Main gap" value="Quote form buried below the fold." />
-        <Row
-          label="Suggested angle"
-          value="Lead with quote-flow fix + local proof."
+        {/* TODO: Connect qualification data to a real prospect enrichment table or endpoint. */}
+        <EmptyState
+          title="No qualification data"
+          description="Prospect enrichment is not connected yet."
         />
       </Section>
 
       <Section icon={Mail} title="Next best action">
-        <div className="grid gap-1.5">
-          {[
-            "Send Missed Jobs Report",
-            "Ask qualifying question",
-            "Book discovery call",
-            "Follow up tomorrow",
-            "Close loop",
-            "Mark not interested",
-          ].map((a) => (
-            <Button
-              key={a}
-              variant="outline"
-              size="sm"
-              className="justify-start"
-            >
-              {a}
-            </Button>
-          ))}
-        </div>
+        {/* TODO: Connect next-best-action recommendations to a real AI/backend source. */}
+        <EmptyState
+          title="No recommendation available"
+          description="Next-best-action data is not connected yet."
+        />
       </Section>
 
       <Section icon={c.suppressed ? ShieldX : ShieldCheck} title="Compliance">
         <Row label="Opt-out" value={c.opt_out ? "Yes" : "No"} />
         <Row label="Suppressed" value={c.suppressed ? "Yes" : "No"} />
-        <Row
-          label="Consent"
-          value={
-            c.source === "Meta Ad"
-              ? "Inbound from Meta ad"
-              : "Permission-based outbound"
-          }
-        />
-        <Row label="Last template" value="mjr_intro_short_v1" />
+        {/* TODO: Connect consent and template audit fields to real compliance/message tables. */}
+        <Row label="Consent" value="—" />
+        <Row label="Last template" value="—" />
       </Section>
 
       <Section icon={StickyNote} title="Internal notes">

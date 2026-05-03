@@ -1,15 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import {
-  defaultProspect,
-  mockCampaignLeads,
-  mockConversations,
-  mockMessages,
-  mockOutreachQueue,
-  mockProspects,
-  mockSuppressionList,
-  mockTemplates,
-} from "./mockData";
 import type {
   CampaignLead,
   CrmStage,
@@ -21,103 +11,103 @@ import type {
   WhatsAppTemplate,
 } from "./types";
 
-// ─── Loading helper ──────────────────────────────────────────────
-function useMock<T>(data: T, delay = 250) {
-  const [loading, setLoading] = useState(true);
-  const [value, setValue] = useState<T>(data);
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), delay);
-    return () => clearTimeout(t);
-  }, [delay]);
-  return { data: value, setValue, loading };
-}
-
 // ─── Conversations ───────────────────────────────────────────────
 export function useWhatsAppConversations() {
-  const { data, setValue, loading } = useMock(mockConversations);
+  // TODO: Connect this hook to the real conversations/prospects Supabase source once available.
+  const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
 
   const updateConversation = useCallback(
     (id: string, patch: Partial<WhatsAppConversation>) => {
-      setValue((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      );
     },
-    [setValue],
+    [],
   );
 
-  return { conversations: data, loading, updateConversation };
+  return {
+    conversations,
+    loading: false,
+    error: null as string | null,
+    updateConversation,
+  };
 }
 
 // ─── Messages for a conversation ─────────────────────────────────
 export function useConversationMessages(conversationId: string | null) {
+  // TODO: Connect this hook to the real WhatsApp messages Supabase source once available.
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!conversationId) {
-      setMessages([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const t = setTimeout(() => {
-      setMessages(mockMessages[conversationId] ?? []);
-      setLoading(false);
-    }, 200);
-    return () => clearTimeout(t);
-  }, [conversationId]);
 
   const appendMessage = useCallback((msg: WhatsAppMessage) => {
     setMessages((prev) => [...prev, msg]);
   }, []);
 
-  return { messages, loading, appendMessage };
+  return {
+    messages: conversationId ? messages : [],
+    loading: false,
+    error: null as string | null,
+    appendMessage,
+  };
 }
 
 // ─── Outreach queue ──────────────────────────────────────────────
 export function useOutreachQueue() {
-  const { data, setValue, loading } = useMock(mockOutreachQueue);
+  // TODO: Connect this hook to the real outreach queue Supabase source once available.
+  const [queue, setQueue] = useState<OutreachQueueItem[]>([]);
 
   const update = useCallback(
     (id: string, patch: Partial<OutreachQueueItem>) =>
-      setValue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q))),
-    [setValue],
+      setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q))),
+    [],
   );
 
-  return { queue: data, loading, update };
+  return { queue, loading: false, error: null as string | null, update };
 }
 
 // ─── Templates ───────────────────────────────────────────────────
 export function useWhatsAppTemplates() {
-  const { data, loading } = useMock(mockTemplates);
-  return { templates: data, loading };
+  // TODO: Connect this hook to the real WhatsApp templates Supabase source once available.
+  return {
+    templates: [] as WhatsAppTemplate[],
+    loading: false,
+    error: null as string | null,
+  };
 }
 
 // ─── Suppression ─────────────────────────────────────────────────
 export function useSuppressionList() {
-  const { data, setValue, loading } = useMock(mockSuppressionList);
+  // TODO: Connect this hook to the real suppression list Supabase source once available.
+  const add = useCallback((_rec: SuppressionRecord) => {
+    toast.error("Suppression data source is not configured");
+  }, []);
+  const remove = useCallback((_id: string) => {
+    toast.error("Suppression data source is not configured");
+  }, []);
 
-  const add = useCallback(
-    (rec: SuppressionRecord) => setValue((prev) => [rec, ...prev]),
-    [setValue],
-  );
-  const remove = useCallback(
-    (id: string) => setValue((prev) => prev.filter((r) => r.id !== id)),
-    [setValue],
-  );
-
-  return { records: data, loading, add, remove };
+  return {
+    records: [] as SuppressionRecord[],
+    loading: false,
+    error: null as string | null,
+    add,
+    remove,
+  };
 }
 
 // ─── Campaign leads ──────────────────────────────────────────────
 export function useCampaignLeads() {
-  const { data, loading } = useMock(mockCampaignLeads);
-  return { leads: data, loading };
+  // TODO: Connect this hook to the real campaign leads Supabase source once available.
+  return {
+    leads: [] as CampaignLead[],
+    loading: false,
+    error: null as string | null,
+  };
 }
 
 // ─── Prospect details ────────────────────────────────────────────
 export function useProspect(conv: WhatsAppConversation | null) {
-  return conv
-    ? mockProspects[conv.prospect_id] ?? defaultProspect(conv)
-    : null;
+  // TODO: Connect this hook to the real prospect details Supabase source once available.
+  void conv;
+  return null;
 }
 
 // ─── Service-window helper ───────────────────────────────────────
@@ -141,61 +131,53 @@ export function formatCountdown(ms: number) {
   return `${h}h ${m}m`;
 }
 
-// ─── Mutation placeholders (Supabase Edge Functions later) ───────
+// ─── Backend actions ─────────────────────────────────────────────
 export async function sendFreeformMessage(
   _conversationId: string,
-  body: string,
+  _body: string,
 ) {
-  await new Promise((r) => setTimeout(r, 350));
-  toast.success("Reply queued for send");
-  return { ok: true, body };
+  toast.error("Message sending is not connected to a backend yet");
+  return { ok: false };
 }
 
 export async function sendTemplateMessage(
   _conversationId: string,
-  templateName: string,
+  _templateName: string,
   _params: Record<string, string>,
 ) {
-  await new Promise((r) => setTimeout(r, 400));
-  toast.success(`Template "${templateName}" queued for send`);
-  return { ok: true };
+  toast.error("Template sending is not connected to a backend yet");
+  return { ok: false };
 }
 
 export async function generateAIReply(_conversationId: string) {
-  await new Promise((r) => setTimeout(r, 700));
-  toast("AI suggestion generated", { description: "Review before sending." });
-  return {
-    body: "It shows the main places your online presence may be losing enquiries — usually things like unclear quote forms, weak proof, old posts, or missing local trust signals. I can send the short version here first if that helps.",
-    reasoning:
-      "Prospect asked a direct content question. Answer plainly, no hype, then offer a low-friction next step.",
-    suggested_stage: "Interested" as CrmStage,
-    suggested_action: "Send Missed Jobs Report",
-  };
+  toast.error("AI reply generation is not connected to a backend yet");
+  return null;
 }
 
 export async function approveQueueItem(_id: string) {
-  await new Promise((r) => setTimeout(r, 300));
-  toast.success("Outreach approved");
+  toast.error("Outreach approvals are not connected to a backend yet");
+  return { ok: false };
 }
 
 export async function rejectQueueItem(_id: string) {
-  await new Promise((r) => setTimeout(r, 200));
-  toast("Outreach rejected");
+  toast.error("Outreach rejection is not connected to a backend yet");
+  return { ok: false };
 }
 
 export async function markDoNotContact(_prospectId: string) {
-  await new Promise((r) => setTimeout(r, 250));
-  toast.success("Marked as Do Not Contact");
+  toast.error("Do Not Contact updates are not connected to a backend yet");
+  return { ok: false };
 }
 
 export async function updateCRMStage(_prospectId: string, stage: CrmStage) {
-  await new Promise((r) => setTimeout(r, 200));
-  toast.success(`CRM stage updated → ${stage}`);
+  void stage;
+  toast.error("CRM stage updates are not connected to a backend yet");
+  return { ok: false };
 }
 
 export async function saveInternalNote(_prospectId: string, _note: string) {
-  await new Promise((r) => setTimeout(r, 200));
-  toast.success("Note saved");
+  toast.error("Internal notes are not connected to a backend yet");
+  return { ok: false };
 }
 
 // Re-exports for type-only imports

@@ -37,6 +37,7 @@ const SORT_OPTIONS = [
 interface Props {
   conversations: WhatsAppConversation[];
   loading: boolean;
+  error?: string | null;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
@@ -44,6 +45,7 @@ interface Props {
 export function ConversationList({
   conversations,
   loading,
+  error,
   selectedId,
   onSelect,
 }: Props) {
@@ -163,11 +165,17 @@ export function ConversationList({
               />
             ))}
           </div>
+        ) : error ? (
+          <EmptyState
+            icon={MessagesSquare}
+            title="Could not load conversations"
+            description={error}
+          />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={MessagesSquare}
             title="No conversations"
-            description="Adjust filters or wait for inbound replies."
+            description="No conversation data source is connected yet."
           />
         ) : (
           filtered.map((c) => (

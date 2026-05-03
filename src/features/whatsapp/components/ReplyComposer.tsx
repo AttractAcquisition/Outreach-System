@@ -60,12 +60,13 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
   async function handleAIGenerate() {
     setAiLoading(true);
     const r = await generateAIReply(conversation.id);
-    setSuggestion(r);
+    if (r) setSuggestion(r);
     setAiLoading(false);
   }
 
   async function doSend(text: string) {
-    await sendFreeformMessage(conversation.id, text);
+    const result = await sendFreeformMessage(conversation.id, text);
+    if (!result.ok) return;
     onMessageSent({
       id: `m-${Date.now()}`,
       conversation_id: conversation.id,
@@ -74,7 +75,6 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
       body: text,
       status: "queued",
       created_at: new Date().toISOString(),
-      sender_name: "Alex",
     });
     setBody("");
     setUsedSuggestion(null);
@@ -92,7 +92,12 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
 
   async function handleSendTemplate() {
     if (!selectedTemplate) return;
-    await sendTemplateMessage(conversation.id, selectedTemplate.template_name, vars);
+    const result = await sendTemplateMessage(
+      conversation.id,
+      selectedTemplate.template_name,
+      vars,
+    );
+    if (!result.ok) return;
     onMessageSent({
       id: `m-${Date.now()}`,
       conversation_id: conversation.id,
@@ -103,7 +108,6 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
       template_params: vars,
       status: "queued",
       created_at: new Date().toISOString(),
-      sender_name: "Alex",
     });
     setVars({});
   }

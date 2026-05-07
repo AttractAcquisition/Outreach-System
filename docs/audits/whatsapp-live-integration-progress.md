@@ -120,7 +120,7 @@ It could not run because the local Supabase stack is not running.
 Remote type generation was attempted with:
 
 ```bash
-npx supabase gen types typescript --project-id ayfidvycgqorxmlczyxl
+npx supabase gen types typescript --project-id fgyvcyksgbivhrqoxkmj
 ```
 
 It could not run because Supabase reported: "Project must be active and healthy."
@@ -128,7 +128,7 @@ It could not run because Supabase reported: "Project must be active and healthy.
 After applying the migration to the linked Supabase project, regenerate types with:
 
 ```bash
-npx supabase gen types typescript --project-id ayfidvycgqorxmlczyxl > src/integrations/supabase/database.types.ts
+npx supabase gen types typescript --project-id fgyvcyksgbivhrqoxkmj > src/integrations/supabase/database.types.ts
 ```
 
 ## Remaining Limitations

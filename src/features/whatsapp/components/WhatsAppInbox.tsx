@@ -12,7 +12,7 @@ export function WhatsAppInbox({
 }: {
   initialConversationId?: string;
 }) {
-  const { conversations, loading, error, updateConversation } =
+  const { conversations, loading, error, reload, updateConversation } =
     useWhatsAppConversations();
   const [selectedId, setSelectedId] = useState<string | null>(
     initialConversationId ?? null,
@@ -72,6 +72,7 @@ export function WhatsAppInbox({
         <ConversationThread
           conversation={selected}
           onUpdate={updateConversation}
+          onRefreshConversations={() => void reload()}
           onOpenProspect={() => setProspectOpen(true)}
         />
       </div>

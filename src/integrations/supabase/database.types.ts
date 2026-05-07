@@ -952,10 +952,58 @@ export type Database = {
           },
         ]
       }
+      client_reports: {
+        Row: {
+          client_id: string | null
+          client_name: string | null
+          content_html: string | null
+          created_at: string
+          id: string
+          report_type: string
+          signed_url: string | null
+          signed_url_expires_at: string | null
+          storage_path: string | null
+          week_ending: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          client_name?: string | null
+          content_html?: string | null
+          created_at?: string
+          id?: string
+          report_type: string
+          signed_url?: string | null
+          signed_url_expires_at?: string | null
+          storage_path?: string | null
+          week_ending?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string | null
+          content_html?: string | null
+          created_at?: string
+          id?: string
+          report_type?: string
+          signed_url?: string | null
+          signed_url_expires_at?: string | null
+          storage_path?: string | null
+          week_ending?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_reports_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           account_manager: string | null
           account_manager_name: string | null
+          active_sprint_id: string | null
           business_name: string
           churn_risk_flag: boolean
           client_delivery_va: string | null
@@ -967,15 +1015,21 @@ export type Database = {
           email: string | null
           id: string
           last_results_meeting: string | null
+          last_upsell_check_at: string | null
+          last_upsell_score: number | null
           meta_ad_account_id: string | null
           meta_pixel_id: string | null
           monthly_ad_spend: number | null
           monthly_retainer: number | null
+          mrr: number | null
+          next_review_date: string | null
+          niche: string | null
           notes: string | null
           owner_name: string
           phone: string | null
           prospect_id: string | null
           setup_fee: number | null
+          start_date: string | null
           status: string
           tier: string
           updated_at: string
@@ -985,6 +1039,7 @@ export type Database = {
         Insert: {
           account_manager?: string | null
           account_manager_name?: string | null
+          active_sprint_id?: string | null
           business_name: string
           churn_risk_flag?: boolean
           client_delivery_va?: string | null
@@ -996,15 +1051,21 @@ export type Database = {
           email?: string | null
           id?: string
           last_results_meeting?: string | null
+          last_upsell_check_at?: string | null
+          last_upsell_score?: number | null
           meta_ad_account_id?: string | null
           meta_pixel_id?: string | null
           monthly_ad_spend?: number | null
           monthly_retainer?: number | null
+          mrr?: number | null
+          next_review_date?: string | null
+          niche?: string | null
           notes?: string | null
           owner_name: string
           phone?: string | null
           prospect_id?: string | null
           setup_fee?: number | null
+          start_date?: string | null
           status?: string
           tier?: string
           updated_at?: string
@@ -1014,6 +1075,7 @@ export type Database = {
         Update: {
           account_manager?: string | null
           account_manager_name?: string | null
+          active_sprint_id?: string | null
           business_name?: string
           churn_risk_flag?: boolean
           client_delivery_va?: string | null
@@ -1025,15 +1087,21 @@ export type Database = {
           email?: string | null
           id?: string
           last_results_meeting?: string | null
+          last_upsell_check_at?: string | null
+          last_upsell_score?: number | null
           meta_ad_account_id?: string | null
           meta_pixel_id?: string | null
           monthly_ad_spend?: number | null
           monthly_retainer?: number | null
+          mrr?: number | null
+          next_review_date?: string | null
+          niche?: string | null
           notes?: string | null
           owner_name?: string
           phone?: string | null
           prospect_id?: string | null
           setup_fee?: number | null
+          start_date?: string | null
           status?: string
           tier?: string
           updated_at?: string
@@ -1376,16 +1444,19 @@ export type Database = {
           briefing: Json
           generated_at: string
           id: string
+          type: string | null
         }
         Insert: {
           briefing: Json
           generated_at?: string
           id?: string
+          type?: string | null
         }
         Update: {
           briefing?: Json
           generated_at?: string
           id?: string
+          type?: string | null
         }
         Relationships: []
       }
@@ -1740,6 +1811,47 @@ export type Database = {
             columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          id: string
+          prospect_id: string | null
+          signed_url: string | null
+          signed_url_expires_at: string | null
+          storage_path: string
+          type: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          prospect_id?: string | null
+          signed_url?: string | null
+          signed_url_expires_at?: string | null
+          storage_path: string
+          type: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          prospect_id?: string | null
+          signed_url?: string | null
+          signed_url_expires_at?: string | null
+          storage_path?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
             referencedColumns: ["id"]
           },
         ]
@@ -5094,6 +5206,39 @@ export type Database = {
           },
         ]
       }
+      prospect_batches: {
+        Row: {
+          avg_quality_score: number | null
+          batch_date: string
+          batch_notes: string | null
+          count: number
+          created_at: string
+          id: string
+          min_quality_score: number | null
+          prospect_ids: string[] | null
+        }
+        Insert: {
+          avg_quality_score?: number | null
+          batch_date?: string
+          batch_notes?: string | null
+          count?: number
+          created_at?: string
+          id?: string
+          min_quality_score?: number | null
+          prospect_ids?: string[] | null
+        }
+        Update: {
+          avg_quality_score?: number | null
+          batch_date?: string
+          batch_notes?: string | null
+          count?: number
+          created_at?: string
+          id?: string
+          min_quality_score?: number | null
+          prospect_ids?: string[] | null
+        }
+        Relationships: []
+      }
       prospects: {
         Row: {
           address: string | null
@@ -5102,9 +5247,11 @@ export type Database = {
           assigned_to_profile_id: string | null
           business_name: string
           city: string | null
+          closed_at: string | null
           created_at: string
           data_source: string | null
           email: string | null
+          enrichment_data: Json | null
           google_rating: number | null
           google_review_count: number | null
           has_meta_ads: boolean
@@ -5114,17 +5261,21 @@ export type Database = {
           ig_follower_count: number | null
           instagram_handle: string | null
           is_archived: boolean
+          last_reply_at: string | null
           last_scraped_at: string | null
           meta_ads_running: boolean
           mjr_delivered_at: string | null
           mjr_link: string | null
           mjr_missed_revenue: number | null
           mjr_notes: string | null
+          mjr_url: string | null
           msg_1_sent: boolean
           msg_2_sent: boolean
           msg_3_sent: boolean
           msg_4_sent: boolean
           msg_5_sent: boolean
+          offer_url: string | null
+          onboarding_brief_url: string | null
           outreach_attempted: boolean
           owner_name: string | null
           phone: string | null
@@ -5135,13 +5286,17 @@ export type Database = {
           q_referral: boolean
           q_visual: boolean
           q_weak_digital: boolean
+          quality_score: number | null
+          reply_classification: string | null
           score_digital_weakness: number | null
           score_growth_hunger: number | null
           score_owner_accessibility: number | null
           score_ticket_size: number | null
           score_visual_transformability: number | null
+          source_list: string | null
           source_payload: Json
           spoa_delivered_at: string | null
+          spoa_url: string | null
           status: string
           suburb: string | null
           target_date: string | null
@@ -5157,9 +5312,11 @@ export type Database = {
           assigned_to_profile_id?: string | null
           business_name: string
           city?: string | null
+          closed_at?: string | null
           created_at?: string
           data_source?: string | null
           email?: string | null
+          enrichment_data?: Json | null
           google_rating?: number | null
           google_review_count?: number | null
           has_meta_ads?: boolean
@@ -5169,17 +5326,21 @@ export type Database = {
           ig_follower_count?: number | null
           instagram_handle?: string | null
           is_archived?: boolean
+          last_reply_at?: string | null
           last_scraped_at?: string | null
           meta_ads_running?: boolean
           mjr_delivered_at?: string | null
           mjr_link?: string | null
           mjr_missed_revenue?: number | null
           mjr_notes?: string | null
+          mjr_url?: string | null
           msg_1_sent?: boolean
           msg_2_sent?: boolean
           msg_3_sent?: boolean
           msg_4_sent?: boolean
           msg_5_sent?: boolean
+          offer_url?: string | null
+          onboarding_brief_url?: string | null
           outreach_attempted?: boolean
           owner_name?: string | null
           phone?: string | null
@@ -5190,13 +5351,17 @@ export type Database = {
           q_referral?: boolean
           q_visual?: boolean
           q_weak_digital?: boolean
+          quality_score?: number | null
+          reply_classification?: string | null
           score_digital_weakness?: number | null
           score_growth_hunger?: number | null
           score_owner_accessibility?: number | null
           score_ticket_size?: number | null
           score_visual_transformability?: number | null
+          source_list?: string | null
           source_payload?: Json
           spoa_delivered_at?: string | null
+          spoa_url?: string | null
           status?: string
           suburb?: string | null
           target_date?: string | null
@@ -5212,9 +5377,11 @@ export type Database = {
           assigned_to_profile_id?: string | null
           business_name?: string
           city?: string | null
+          closed_at?: string | null
           created_at?: string
           data_source?: string | null
           email?: string | null
+          enrichment_data?: Json | null
           google_rating?: number | null
           google_review_count?: number | null
           has_meta_ads?: boolean
@@ -5224,17 +5391,21 @@ export type Database = {
           ig_follower_count?: number | null
           instagram_handle?: string | null
           is_archived?: boolean
+          last_reply_at?: string | null
           last_scraped_at?: string | null
           meta_ads_running?: boolean
           mjr_delivered_at?: string | null
           mjr_link?: string | null
           mjr_missed_revenue?: number | null
           mjr_notes?: string | null
+          mjr_url?: string | null
           msg_1_sent?: boolean
           msg_2_sent?: boolean
           msg_3_sent?: boolean
           msg_4_sent?: boolean
           msg_5_sent?: boolean
+          offer_url?: string | null
+          onboarding_brief_url?: string | null
           outreach_attempted?: boolean
           owner_name?: string | null
           phone?: string | null
@@ -5245,13 +5416,17 @@ export type Database = {
           q_referral?: boolean
           q_visual?: boolean
           q_weak_digital?: boolean
+          quality_score?: number | null
+          reply_classification?: string | null
           score_digital_weakness?: number | null
           score_growth_hunger?: number | null
           score_owner_accessibility?: number | null
           score_ticket_size?: number | null
           score_visual_transformability?: number | null
+          source_list?: string | null
           source_payload?: Json
           spoa_delivered_at?: string | null
+          spoa_url?: string | null
           status?: string
           suburb?: string | null
           target_date?: string | null
@@ -6058,6 +6233,88 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_ai_suggestions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          client_id: string | null
+          confidence: number | null
+          conversation_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          metadata: Json
+          model: string | null
+          prospect_id: string | null
+          provider: string | null
+          reason: string | null
+          rejected_at: string | null
+          status: string
+          suggested_body: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          conversation_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metadata?: Json
+          model?: string | null
+          prospect_id?: string | null
+          provider?: string | null
+          reason?: string | null
+          rejected_at?: string | null
+          status?: string
+          suggested_body: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          conversation_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metadata?: Json
+          model?: string | null
+          prospect_id?: string | null
+          provider?: string | null
+          reason?: string | null
+          rejected_at?: string | null
+          status?: string
+          suggested_body?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_suggestions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_ai_suggestions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_ai_suggestions_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_conversations: {
         Row: {
           ai_intent: string | null
@@ -6267,6 +6524,144 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_suppression_list: {
+        Row: {
+          added_by: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          normalized_phone_number: string
+          notes: string | null
+          phone_number: string
+          prospect_id: string | null
+          reason: string
+          removed_at: string | null
+          removed_by: string | null
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          normalized_phone_number: string
+          notes?: string | null
+          phone_number: string
+          prospect_id?: string | null
+          reason?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          normalized_phone_number?: string
+          notes?: string | null
+          phone_number?: string
+          prospect_id?: string | null
+          reason?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_suppression_list_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_suppression_list_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_templates: {
+        Row: {
+          body: string
+          category: string
+          components: Json
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          id: string
+          language: string
+          meta_quality_rating: string | null
+          meta_status: string | null
+          meta_template_id: string | null
+          metadata: Json
+          name: string
+          phone_number_id: string | null
+          status: string
+          updated_at: string
+          usable_inside_window: boolean
+          usable_outside_window: boolean
+          variables: Json
+          whatsapp_business_account_id: string | null
+        }
+        Insert: {
+          body: string
+          category?: string
+          components?: Json
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          id?: string
+          language?: string
+          meta_quality_rating?: string | null
+          meta_status?: string | null
+          meta_template_id?: string | null
+          metadata?: Json
+          name: string
+          phone_number_id?: string | null
+          status?: string
+          updated_at?: string
+          usable_inside_window?: boolean
+          usable_outside_window?: boolean
+          variables?: Json
+          whatsapp_business_account_id?: string | null
+        }
+        Update: {
+          body?: string
+          category?: string
+          components?: Json
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          id?: string
+          language?: string
+          meta_quality_rating?: string | null
+          meta_status?: string | null
+          meta_template_id?: string | null
+          metadata?: Json
+          name?: string
+          phone_number_id?: string | null
+          status?: string
+          updated_at?: string
+          usable_inside_window?: boolean
+          usable_outside_window?: boolean
+          variables?: Json
+          whatsapp_business_account_id?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {

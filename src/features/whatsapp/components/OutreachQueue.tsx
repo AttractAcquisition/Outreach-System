@@ -1,455 +1,322 @@
 import { useMemo, useState } from "react";
 import {
   Check,
-  Edit3,
-  Send,
-  ShieldX,
-  X,
-  AlertTriangle,
+  Clipboard,
   Inbox,
+  Loader2,
+  MessageSquareText,
+  RefreshCw,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  approveQueueItem,
-  rejectQueueItem,
-  useOutreachQueue,
-  useWhatsAppTemplates,
+  useApproveWhatsAppSuggestion,
+  useRejectWhatsAppSuggestion,
+  useWhatsAppPendingSuggestions,
 } from "../hooks";
 import { EmptyState } from "./EmptyState";
-import { ConfirmActionModal } from "./ConfirmActionModal";
-import type { OutreachQueueItem, QueueStatus } from "../types";
+import type { WhatsAppPendingSuggestion } from "../types";
 
-type FilterTab = "All" | QueueStatus;
-
-const STATUS_BADGE: Record<QueueStatus, string> = {
-  Draft: "bg-secondary text-foreground border-border",
-  "Pending Approval": "bg-warning/15 text-warning border-warning/30",
-  Approved: "bg-accent/20 text-accent border-accent/40",
-  Sent: "bg-success/15 text-success border-success/30",
-  Failed: "bg-destructive/15 text-destructive border-destructive/30",
-  Cancelled: "bg-muted text-muted-foreground border-border",
-};
-
-function StatusPill({ status }: { status: QueueStatus }) {
-  return (
-    <span
-      className={`px-2 py-0.5 rounded-full border text-[11px] font-medium ${STATUS_BADGE[status]}`}
-    >
-      {status}
-    </span>
-  );
+function firstString(...values: Array<string | null | undefined>) {
+  return values.find((value) => value && value.trim().length > 0) ?? "";
 }
 
-function StatCard({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string | number;
-  tone?: "default" | "warning" | "success" | "destructive";
-}) {
-  const toneCls =
-    tone === "warning"
-      ? "text-warning"
-      : tone === "success"
-        ? "text-success"
-        : tone === "destructive"
-          ? "text-destructive"
-          : "text-foreground";
-  return (
-    <div className="rounded-2xl border border-border bg-card/60 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className={`mt-1 text-2xl font-semibold ${toneCls}`}>{value}</p>
-    </div>
+function formatPercent(value: number | null) {
+  if (value === null || Number.isNaN(value)) return "n/a";
+  return `${Math.round(value * 100)}%`;
+}
+
+function getDisplayContext(item: WhatsAppPendingSuggestion) {
+  const businessName = firstString(
+    item.prospect?.business_name,
+    item.conversation?.contact_name,
+    item.conversation?.phone_number,
+    "Unknown contact",
   );
+  const contactName = firstString(
+    item.prospect?.owner_name,
+    item.conversation?.contact_name,
+    item.conversation?.phone_number,
+  );
+  const phoneNumber = firstString(
+    item.conversation?.phone_number,
+    item.prospect?.whatsapp,
+    item.prospect?.phone,
+  );
+  const location = [item.prospect?.suburb, item.prospect?.city]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    businessName,
+    contactName,
+    phoneNumber,
+    location,
+    vertical: item.prospect?.vertical ?? "",
+    stage: item.conversation?.stage ?? item.prospect?.pipeline_stage ?? "",
+  };
 }
 
 export function OutreachQueue() {
-  const { queue, loading, error, update } = useOutreachQueue();
-  const { templates } = useWhatsAppTemplates();
-  const [filter, setFilter] = useState<FilterTab>("Pending Approval");
-  const [reviewing, setReviewing] = useState<OutreachQueueItem | null>(null);
-  const [bulkMode, setBulkMode] = useState(false);
+  const { suggestions, loading, error, reload } = useWhatsAppPendingSuggestions();
+  const approveSuggestion = useApproveWhatsAppSuggestion();
+  const rejectSuggestion = useRejectWhatsAppSuggestion();
+  const [rejecting, setRejecting] = useState<WhatsAppPendingSuggestion | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const stats = useMemo(() => {
-    return {
-      pending: queue.filter((q) => q.status === "Pending Approval").length,
-      approvedToday: queue.filter((q) => q.status === "Approved").length,
-      sentToday: queue.filter((q) => q.status === "Sent").length,
-      failed: queue.filter((q) => q.status === "Failed").length,
-      blocked: queue.filter((q) => q.compliance_status === "blocked").length,
-      replyRate: 0.21,
-    };
-  }, [queue]);
+    const highConfidence = suggestions.filter(
+      (item) => (item.confidence ?? 0) >= 0.75,
+    ).length;
+    const needsContext = suggestions.filter(
+      (item) => !item.prospect_id && !item.client_id,
+    ).length;
 
-  const filtered = filter === "All" ? queue : queue.filter((q) => q.status === filter);
-  const tabs: FilterTab[] = [
-    "All",
-    "Pending Approval",
-    "Approved",
-    "Sent",
-    "Failed",
-    "Cancelled",
-  ];
+    return {
+      pending: suggestions.length,
+      highConfidence,
+      needsContext,
+    };
+  }, [suggestions]);
+
+  async function copySuggestion(item: WhatsAppPendingSuggestion) {
+    try {
+      await navigator.clipboard.writeText(item.suggested_body);
+      toast.success("Suggestion copied");
+    } catch (_err) {
+      toast.error("Could not copy suggestion");
+    }
+  }
+
+  async function confirmReject() {
+    if (!rejecting) return;
+    await rejectSuggestion.mutateAsync({
+      id: rejecting.id,
+      reason: rejectionReason,
+    });
+    setRejecting(null);
+    setRejectionReason("");
+  }
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard label="Pending approval" value={stats.pending} tone="warning" />
-        <StatCard label="Approved today" value={stats.approvedToday} />
-        <StatCard label="Sent today" value={stats.sentToday} tone="success" />
-        <StatCard label="Failed sends" value={stats.failed} tone="destructive" />
-        <StatCard label="Compliance blocks" value={stats.blocked} tone="destructive" />
-        <StatCard label="Reply rate" value={`${Math.round(stats.replyRate * 100)}%`} />
+      <div className="grid gap-3 md:grid-cols-3">
+        <QueueStat label="Pending AI suggestions" value={stats.pending} />
+        <QueueStat label="High confidence" value={stats.highConfidence} />
+        <QueueStat label="Needs more context" value={stats.needsContext} />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          {tabs.map((t) => (
-            <button
-              key={t}
-              onClick={() => setFilter(t)}
-              className={`px-2.5 py-1 rounded-full text-xs border ${
-                filter === t
-                  ? "bg-gradient-brand text-primary-foreground border-transparent"
-                  : "bg-secondary/60 text-muted-foreground border-border hover:text-foreground"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">WhatsApp human approval</h2>
+          <p className="text-xs text-muted-foreground">
+            AI reply drafts require a human decision before use. Nothing here sends to Meta.
+          </p>
         </div>
         <Button
+          type="button"
           size="sm"
-          variant={bulkMode ? "default" : "outline"}
-          onClick={() => setBulkMode(!bulkMode)}
+          variant="outline"
+          onClick={() => void reload()}
+          disabled={loading}
         >
-          {bulkMode ? "Exit bulk review" : "Bulk review mode"}
+          <RefreshCw className="h-4 w-4" />
+          Refresh
         </Button>
       </div>
 
       {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-24 rounded-2xl bg-card/40 border border-border animate-pulse"
-            />
-          ))}
+        <div className="rounded-lg border border-border bg-card/60 p-6 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+          Loading pending WhatsApp suggestions...
         </div>
       ) : error ? (
         <EmptyState
           icon={Inbox}
-          title="Could not load outreach queue"
+          title="Could not load approval queue"
           description={error}
         />
-      ) : filtered.length === 0 ? (
+      ) : suggestions.length === 0 ? (
         <EmptyState
           icon={Inbox}
-          title="Nothing in this queue"
-          description="No outreach queue data source is connected yet."
+          title="No pending WhatsApp suggestions"
+          description="Generated reply suggestions that need review will appear here."
         />
       ) : (
-        <div className="space-y-2">
-          {(bulkMode ? filtered.slice(0, 10) : filtered).map((item) => (
-            <QueueRow
+        <div className="space-y-3">
+          {suggestions.map((item) => (
+            <SuggestionRow
               key={item.id}
               item={item}
-              onReview={() => setReviewing(item)}
-              onApprove={async () => {
-                const result = await approveQueueItem(item.id);
-                if (result.ok) {
-                  update(item.id, {
-                    status: "Approved",
-                    approved_at: new Date().toISOString(),
-                  });
-                }
-              }}
-              onReject={async () => {
-                const result = await rejectQueueItem(item.id);
-                if (result.ok) update(item.id, { status: "Cancelled" });
-              }}
+              approving={approveSuggestion.isPending}
+              rejecting={rejectSuggestion.isPending}
+              onApprove={() => approveSuggestion.mutate(item.id)}
+              onReject={() => setRejecting(item)}
+              onCopy={() => void copySuggestion(item)}
             />
           ))}
         </div>
       )}
 
-      <ReviewModal
-        item={reviewing}
-        templates={templates}
-        onClose={() => setReviewing(null)}
-        onSave={(patch) => reviewing && update(reviewing.id, patch)}
-      />
+      <Dialog open={!!rejecting} onOpenChange={(open) => !open && setRejecting(null)}>
+        <DialogContent className="max-w-md rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Reject AI suggestion</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rejection-reason" className="text-xs text-muted-foreground">
+              Reason
+            </Label>
+            <Textarea
+              id="rejection-reason"
+              value={rejectionReason}
+              onChange={(event) => setRejectionReason(event.target.value)}
+              rows={3}
+              className="bg-background/60"
+              placeholder="Optional note for the approval record"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRejecting(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmReject()}
+              disabled={rejectSuggestion.isPending}
+            >
+              Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function QueueRow({
+function QueueStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-lg border border-border bg-card/60 p-4">
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function SuggestionRow({
   item,
-  onReview,
+  approving,
+  rejecting,
   onApprove,
   onReject,
+  onCopy,
 }: {
-  item: OutreachQueueItem;
-  onReview: () => void;
+  item: WhatsAppPendingSuggestion;
+  approving: boolean;
+  rejecting: boolean;
   onApprove: () => void;
   onReject: () => void;
+  onCopy: () => void;
 }) {
-  const blocked = item.compliance_status === "blocked";
+  const context = getDisplayContext(item);
+
   return (
-    <div className="rounded-2xl border border-border bg-card/60 p-4">
-      <div className="flex items-start justify-between gap-3 mb-2">
+    <div className="rounded-lg border border-border bg-card/60 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-sm">{item.business_name}</p>
-            <StatusPill status={item.status} />
-            {blocked && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-destructive">
-                <ShieldX className="h-3 w-3" /> Blocked: suppressed
-              </span>
-            )}
-            {item.risk_score >= 30 && !blocked && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-warning">
-                <AlertTriangle className="h-3 w-3" /> Risk {item.risk_score}
-              </span>
-            )}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-sm">{context.businessName}</p>
+            <Badge variant="outline" className="border-warning/30 text-warning">
+              {item.status === "pending" ? "pending_review" : item.status}
+            </Badge>
+            <Badge variant="outline" className="border-border">
+              Confidence {formatPercent(item.confidence)}
+            </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {item.contact_name} · {item.phone_number} · {item.niche} · {item.location}
+          <p className="mt-1 text-xs text-muted-foreground">
+            {[context.contactName, context.phoneNumber, context.vertical, context.location]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
-        <div className="text-right text-[11px] text-muted-foreground">
-          <p>By {item.created_by}</p>
-          <p>{new Date(item.created_at).toLocaleString()}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {new Date(item.created_at).toLocaleString()}
+        </p>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-border bg-background/40 p-3">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <MessageSquareText className="h-3.5 w-3.5" />
+          Proposed message
         </div>
+        <p className="whitespace-pre-wrap text-sm text-foreground/90">
+          {item.suggested_body}
+        </p>
       </div>
 
-      <p className="text-sm text-foreground/85 line-clamp-2 mb-2">
-        {item.draft_preview}
-      </p>
-
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        <Badge variant="outline" className="border-lavender/30 text-lavender">
-          {item.template_name}
-        </Badge>
-        <Badge variant="outline" className="border-border">
-          AI: {item.ai_observation}
-        </Badge>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <ContextLine label="Reason" value={item.reason || "No reason stored"} />
+        <ContextLine
+          label="Conversation"
+          value={
+            item.conversation?.last_message_preview ||
+            context.stage ||
+            "No conversation summary stored"
+          }
+        />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={onReview}>
-          <Edit3 className="h-4 w-4" /> Review
-        </Button>
+      <div className="mt-3 flex flex-wrap gap-2">
         <Button
           size="sm"
           className="bg-gradient-brand text-primary-foreground hover:opacity-90"
           onClick={onApprove}
-          disabled={blocked || item.status === "Sent"}
+          disabled={approving || rejecting}
         >
-          <Check className="h-4 w-4" /> Approve
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onReject}>
-          <X className="h-4 w-4" /> Reject
+          <Check className="h-4 w-4" />
+          Approve
         </Button>
         <Button
           size="sm"
-          variant="secondary"
-          disabled={blocked || item.status !== "Approved"}
+          variant="outline"
+          onClick={onCopy}
+          disabled={approving || rejecting}
         >
-          <Send className="h-4 w-4" /> Send now
+          <Clipboard className="h-4 w-4" />
+          Copy/use in composer
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onReject}
+          disabled={approving || rejecting}
+        >
+          <X className="h-4 w-4" />
+          Reject
         </Button>
       </div>
     </div>
   );
 }
 
-function ReviewModal({
-  item,
-  templates,
-  onClose,
-  onSave,
-}: {
-  item: OutreachQueueItem | null;
-  templates: ReturnType<typeof useWhatsAppTemplates>["templates"];
-  onClose: () => void;
-  onSave: (patch: Partial<OutreachQueueItem>) => void;
-}) {
-  const [vars, setVars] = useState<Record<string, string>>({});
-  const [templateName, setTemplateName] = useState("");
-  const [confirmCold, setConfirmCold] = useState(false);
-
-  useMemo(() => {
-    if (item) {
-      setVars(item.template_params);
-      setTemplateName(item.template_name);
-    }
-  }, [item]);
-
-  if (!item) return null;
-  const template = templates.find((t) => t.template_name === templateName);
-  const preview =
-    template?.body.replace(/{{(\d+)}}/g, (_, n) => vars[n] ?? `{{${n}}}`) ??
-    item.draft_preview;
-
-  const checks = [
-    { label: "Has business name", ok: !!item.business_name },
-    { label: "Has specific observation", ok: !!item.ai_observation },
-    { label: "No aggressive claims", ok: true },
-    { label: "No misleading guarantee", ok: true },
-    { label: "Includes permission-based CTA", ok: true },
-    { label: "Not suppressed", ok: item.compliance_status !== "blocked" },
-  ];
-
+function ContextLine({ label, value }: { label: string; value: string }) {
   return (
-    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>Review outreach · {item.business_name}</DialogTitle>
-          <DialogDescription>
-            Editable variables and compliance checks. Approval required before sending.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs text-muted-foreground">Template</Label>
-              <Select value={templateName} onValueChange={setTemplateName}>
-                <SelectTrigger className="mt-1 bg-background/60 border-border rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates
-                    .filter((t) => t.status === "Approved")
-                    .map((t) => (
-                      <SelectItem key={t.id} value={t.template_name}>
-                        {t.template_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {template?.variables.map((v, i) => {
-              const k = String(i + 1);
-              return (
-                <div key={k}>
-                  <Label className="text-[11px] text-muted-foreground">{`{{${k}}} · ${v}`}</Label>
-                  <Input
-                    value={vars[k] ?? ""}
-                    onChange={(e) =>
-                      setVars((p) => ({ ...p, [k]: e.target.value }))
-                    }
-                    className="mt-1 bg-background/60 border-border rounded-xl"
-                  />
-                </div>
-              );
-            })}
-            <div className="rounded-2xl border border-border bg-background/40 p-3 text-sm whitespace-pre-wrap">
-              {preview}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-border bg-background/40 p-3 text-xs">
-              <p className="font-semibold mb-2">Prospect</p>
-              <p>{item.business_name}</p>
-              <p className="text-muted-foreground">{item.contact_name} · {item.phone_number}</p>
-              <p className="text-muted-foreground">{item.niche} · {item.location}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-background/40 p-3 text-xs">
-              <p className="font-semibold mb-2">AI personalization</p>
-              <p className="text-muted-foreground">{item.ai_observation}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-background/40 p-3 text-xs space-y-1.5">
-              <p className="font-semibold mb-1">Compliance checklist</p>
-              {checks.map((c) => (
-                <div key={c.label} className="flex items-center gap-2">
-                  {c.ok ? (
-                    <Check className="h-3.5 w-3.5 text-success" />
-                  ) : (
-                    <X className="h-3.5 w-3.5 text-destructive" />
-                  )}
-                  <span className={c.ok ? "" : "text-destructive"}>{c.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="flex-wrap gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              onSave({ template_name: templateName, template_params: vars, draft_preview: preview });
-              onClose();
-            }}
-          >
-            Save edits
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              const result = await rejectQueueItem(item.id);
-              if (result.ok) onSave({ status: "Cancelled" });
-              onClose();
-            }}
-          >
-            Reject
-          </Button>
-          <Button
-            className="bg-gradient-brand text-primary-foreground hover:opacity-90"
-            onClick={() => setConfirmCold(true)}
-            disabled={item.compliance_status === "blocked"}
-          >
-            Approve for send
-          </Button>
-        </DialogFooter>
-
-        <ConfirmActionModal
-          open={confirmCold}
-          onOpenChange={setConfirmCold}
-          title="Send approved template to cold prospect?"
-          description="This will send an outbound WhatsApp template message. Make sure the variables are accurate."
-          confirmLabel="Approve & queue send"
-          onConfirm={async () => {
-            setConfirmCold(false);
-            const result = await approveQueueItem(item.id);
-            if (result.ok) {
-              onSave({
-                status: "Approved",
-                approved_at: new Date().toISOString(),
-                template_params: vars,
-                template_name: templateName,
-                draft_preview: preview,
-              });
-            }
-            onClose();
-          }}
-        />
-      </DialogContent>
-    </Dialog>
+    <div className="rounded-lg border border-border bg-background/30 p-3 text-xs">
+      <p className="font-medium text-foreground">{label}</p>
+      <p className="mt-1 line-clamp-3 text-muted-foreground">{value}</p>
+    </div>
   );
 }

@@ -99,6 +99,63 @@ export interface WhatsAppMessage {
   error_message?: string;
 }
 
+export interface WhatsAppReplySuggestion {
+  suggestion_id?: string | null;
+  suggested_body: string;
+  reason: string;
+  confidence: number;
+}
+
+export type WhatsAppSuggestionStatus =
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "used"
+  | string;
+
+export interface WhatsAppPendingSuggestion {
+  id: string;
+  conversation_id: string;
+  prospect_id: string | null;
+  client_id: string | null;
+  suggested_body: string;
+  reason: string | null;
+  confidence: number | null;
+  status: WhatsAppSuggestionStatus;
+  provider: string | null;
+  model: string | null;
+  created_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejected_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  conversation?: {
+    id: string;
+    contact_name: string | null;
+    phone_number: string | null;
+    status: string | null;
+    stage: string | null;
+    last_message_preview: string | null;
+    last_message_at: string | null;
+    service_window_open_until: string | null;
+  } | null;
+  prospect?: {
+    id: string;
+    business_name: string | null;
+    owner_name: string | null;
+    phone: string | null;
+    whatsapp: string | null;
+    vertical: string | null;
+    city: string | null;
+    suburb: string | null;
+    pipeline_stage: string | null;
+    icp_total_score: number | null;
+    status: string | null;
+  } | null;
+}
+
 export type QueueStatus =
   | "Draft"
   | "Pending Approval"
@@ -130,48 +187,198 @@ export interface OutreachQueueItem {
   error_message?: string;
 }
 
-export type TemplateCategory = "Marketing" | "Utility" | "Authentication";
+export type TemplateCategory =
+  | "marketing"
+  | "utility"
+  | "authentication"
+  | string;
 export type TemplateStatus =
-  | "Draft"
-  | "Submitted"
-  | "Approved"
-  | "Rejected"
-  | "Paused";
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "paused"
+  | "archived"
+  | string;
 
 export interface WhatsAppTemplate {
   id: string;
-  template_name: string;
+  name: string;
+  displayName: string | null;
   category: TemplateCategory;
   language: string;
-  status: TemplateStatus;
   body: string;
   variables: string[];
-  use_case: string;
-  last_used_at: string | null;
-  sent_count: number;
-  reply_rate: number;
-  opt_out_rate: number;
-  notes?: string;
+  components: unknown[];
+  status: TemplateStatus;
+  metaTemplateId: string | null;
+  metaStatus: string | null;
+  metaQualityRating: string | null;
+  whatsappBusinessAccountId: string | null;
+  phoneNumberId: string | null;
+  usableInsideWindow: boolean;
+  usableOutsideWindow: boolean;
+  createdBy: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WhatsAppTemplateFormInput {
+  name: string;
+  displayName?: string | null;
+  category?: TemplateCategory;
+  language?: string;
+  body: string;
+  variables: string[];
+  components?: unknown[];
+  status?: TemplateStatus;
+  metaTemplateId?: string | null;
+  metaStatus?: string | null;
+  metaQualityRating?: string | null;
+  whatsappBusinessAccountId?: string | null;
+  phoneNumberId?: string | null;
+  usableInsideWindow?: boolean;
+  usableOutsideWindow?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WhatsAppTemplateSyncResult {
+  ok: boolean;
+  fetched: number;
+  inserted: number;
+  updated: number;
+}
+
+export type WhatsAppAnalyticsRange = "today" | "7d" | "30d" | "all";
+
+export interface WhatsAppBreakdownItem {
+  label: string;
+  value: number;
+}
+
+export interface WhatsAppAnalyticsSummary {
+  range: WhatsAppAnalyticsRange;
+  totalConversations: number;
+  conversationsToday: number;
+  openConversations: number;
+  conversationsNeedingHuman: number;
+  unreadConversations: number;
+  activeServiceWindows: number;
+  expiredServiceWindows: number;
+  inboundMessages: number;
+  outboundMessages: number;
+  messagesSentToday: number;
+  messagesReceivedToday: number;
+  failedOutboundMessages: number;
+  suppressedNumbers: number;
+  activeTemplates: number;
+  pendingAiSuggestions: number;
+  approvedAiSuggestions: number;
+  rejectedAiSuggestions: number;
+  campaignAttributedConversations: number | null;
+  costPerConversation: number | null;
+  costPerQualifiedLead: number | null;
+  conversationsBySource: WhatsAppBreakdownItem[];
+  conversationsByStage: WhatsAppBreakdownItem[];
+  conversationsByCampaign: WhatsAppBreakdownItem[];
+  conversationsByClient: WhatsAppBreakdownItem[];
+  conversationsByProspectSource: WhatsAppBreakdownItem[];
+  messagesByDirection: WhatsAppBreakdownItem[];
+  messagesByStatus: WhatsAppBreakdownItem[];
+}
+
+export interface WhatsAppCampaignLead {
+  id: string;
+  conversationId: string;
+  campaignId: string;
+  campaignName: string;
+  campaignStatus: string;
+  campaignChannel: string | null;
+  clientId: string | null;
+  clientName: string | null;
+  prospectId: string | null;
+  businessName: string;
+  contactName: string;
+  phoneNumber: string;
+  source: string;
+  stage: string;
+  status: string;
+  unreadCount: number;
+  needsHuman: boolean;
+  lastMessage: string;
+  lastMessageAt: string | null;
+  serviceWindowOpenUntil: string | null;
+  prospectSource: string | null;
+  prospectStatus: string | null;
+  prospectPipelineStage: string | null;
+  leadScore: number | null;
+  createdAt: string;
+}
+
+export type WhatsAppHealthOverallStatus = "healthy" | "warning" | "error";
+export type WhatsAppHealthCheckStatus = "configured" | "missing" | "warning";
+
+export interface WhatsAppHealthCheck {
+  key: string;
+  label: string;
+  status: WhatsAppHealthCheckStatus;
+  message: string;
+}
+
+export interface WhatsAppIntegrationHealth {
+  status: WhatsAppHealthOverallStatus;
+  checks: WhatsAppHealthCheck[];
+  metrics: {
+    projectRef: string;
+    conversationTableReadable: boolean;
+    messageTableReadable: boolean;
+    conversationCount: number;
+    messageCount: number;
+    lastInboundAt: string | null;
+    lastOutboundAt: string | null;
+    lastFailedSendAt: string | null;
+    lastWebhookEventAt: string | null;
+    lastSendEventAt: string | null;
+    lastAiSuggestionAt: string | null;
+    templateCount: number;
+    suppressionCount: number;
+    aiSuggestionCount: number;
+  };
 }
 
 export type SuppressionReason =
-  | "Opted out"
-  | "Not interested"
-  | "Wrong number"
-  | "Complaint"
-  | "Manual block"
-  | "Duplicate";
+  | "manual"
+  | "opt_out"
+  | "not_interested"
+  | "wrong_number"
+  | "complaint"
+  | "duplicate"
+  | "invalid_number"
+  | "blocked"
+  | "other";
 
-export interface SuppressionRecord {
+export type SuppressionStatus = "active" | "removed" | string;
+
+export interface WhatsAppSuppressionEntry {
   id: string;
-  phone_number: string;
-  business_name: string;
+  phoneNumber: string;
+  normalizedPhoneNumber: string;
   reason: SuppressionReason;
   source: string;
-  created_at: string;
-  created_by: string;
+  status: SuppressionStatus;
+  prospectId: string | null;
+  conversationId: string | null;
+  addedBy: string | null;
+  removedBy: string | null;
+  removedAt: string | null;
   notes?: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
+
+export type SuppressionRecord = WhatsAppSuppressionEntry;
 
 export interface CampaignLead {
   id: string;

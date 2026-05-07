@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Send, Sparkles, FileText, Save, ShieldAlert, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,10 +16,11 @@ import {
   type AISuggestion,
 } from "./AISuggestionPanel";
 import {
-  generateAIReply,
   getWindowState,
-  sendFreeformMessage,
-  sendTemplateMessage,
+  useGenerateWhatsAppReplySuggestion,
+  useMarkWhatsAppSuggestionUsed,
+  useSendWhatsAppMessage,
+  useSendWhatsAppTemplateMessage,
   useWhatsAppTemplates,
 } from "../hooks";
 import { ConfirmActionModal } from "./ConfirmActionModal";
@@ -33,23 +34,34 @@ interface Props {
 export function ReplyComposer({ conversation, onMessageSent }: Props) {
   const { status } = getWindowState(conversation);
   const { templates } = useWhatsAppTemplates();
+  const sendMessage = useSendWhatsAppMessage();
+  const sendTemplate = useSendWhatsAppTemplateMessage();
+  const generateSuggestion = useGenerateWhatsAppReplySuggestion();
+  const markSuggestionUsed = useMarkWhatsAppSuggestionUsed();
   const isClosed = status === "closed";
   const isBlocked = conversation.suppressed || conversation.crm_stage === "Do Not Contact";
 
   const [body, setBody] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<AISuggestion | null>(null);
   const [confirmEditedSendOpen, setConfirmEditedSendOpen] = useState(false);
   const [usedSuggestion, setUsedSuggestion] = useState<string | null>(null);
+  const [insertTemplateId, setInsertTemplateId] = useState("");
 
   // Template state
-  const approvedTemplates = templates.filter((t) => t.status === "Approved");
-  const [templateName, setTemplateName] = useState<string>(
-    approvedTemplates[0]?.template_name ?? "",
+  const approvedTemplates = templates.filter(
+    (t) => t.status === "approved" && t.usableOutsideWindow,
   );
+  const insertableTemplates = templates.filter(
+    (t) => t.status !== "archived" && t.usableInsideWindow,
+  );
+  const [templateId, setTemplateId] = useState<string>(approvedTemplates[0]?.id ?? "");
   const selectedTemplate = useMemo(
-    () => approvedTemplates.find((t) => t.template_name === templateName),
-    [approvedTemplates, templateName],
+    () => approvedTemplates.find((t) => t.id === templateId),
+    [approvedTemplates, templateId],
+  );
+  const insertTemplate = useMemo(
+    () => insertableTemplates.find((t) => t.id === insertTemplateId),
+    [insertTemplateId, insertableTemplates],
   );
   const [vars, setVars] = useState<Record<string, string>>({});
   const previewBody = useMemo(() => {
@@ -57,28 +69,34 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
     return selectedTemplate.body.replace(/{{(\d+)}}/g, (_, n) => vars[n] ?? `{{${n}}}`);
   }, [selectedTemplate, vars]);
 
+  useEffect(() => {
+    if (!templateId && approvedTemplates[0]) {
+      setTemplateId(approvedTemplates[0].id);
+    }
+  }, [approvedTemplates, templateId]);
+
   async function handleAIGenerate() {
-    setAiLoading(true);
-    const r = await generateAIReply(conversation.id);
-    if (r) setSuggestion(r);
-    setAiLoading(false);
+    try {
+      const result = await generateSuggestion.mutateAsync(conversation.id);
+      setSuggestion(result);
+    } catch (_err) {
+      // The mutation owns user-visible error state and toast messaging.
+    }
   }
 
   async function doSend(text: string) {
-    const result = await sendFreeformMessage(conversation.id, text);
-    if (!result.ok) return;
-    onMessageSent({
-      id: `m-${Date.now()}`,
-      conversation_id: conversation.id,
-      direction: "outbound",
-      message_type: "text",
-      body: text,
-      status: "queued",
-      created_at: new Date().toISOString(),
-    });
-    setBody("");
-    setUsedSuggestion(null);
-    setSuggestion(null);
+    try {
+      const message = await sendMessage.mutateAsync({
+        conversationId: conversation.id,
+        body: text,
+      });
+      onMessageSent(message);
+      setBody("");
+      setUsedSuggestion(null);
+      setSuggestion(null);
+    } catch (_err) {
+      // The mutation owns user-visible error state and toast messaging.
+    }
   }
 
   function handleSendClick() {
@@ -92,24 +110,17 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
 
   async function handleSendTemplate() {
     if (!selectedTemplate) return;
-    const result = await sendTemplateMessage(
-      conversation.id,
-      selectedTemplate.template_name,
-      vars,
-    );
-    if (!result.ok) return;
-    onMessageSent({
-      id: `m-${Date.now()}`,
-      conversation_id: conversation.id,
-      direction: "outbound",
-      message_type: "template",
-      body: previewBody,
-      template_name: selectedTemplate.template_name,
-      template_params: vars,
-      status: "queued",
-      created_at: new Date().toISOString(),
-    });
-    setVars({});
+    try {
+      const message = await sendTemplate.mutateAsync({
+        conversationId: conversation.id,
+        templateId: selectedTemplate.id,
+        parameters: vars,
+      });
+      onMessageSent(message);
+      setVars({});
+    } catch (_err) {
+      // The mutation owns user-visible error state and toast messaging.
+    }
   }
 
   if (isBlocked) {
@@ -125,13 +136,16 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
 
   return (
     <div className="border-t border-border bg-card/40 p-4 space-y-3">
-      {(suggestion || aiLoading) && status !== "closed" && (
+      {(suggestion || generateSuggestion.isPending) && status !== "closed" && (
         <AISuggestionPanel
           suggestion={suggestion}
-          loading={aiLoading}
+          loading={generateSuggestion.isPending}
           onUse={(text) => {
             setBody(text);
             setUsedSuggestion(text);
+            if (suggestion?.suggestion_id) {
+              markSuggestionUsed.mutate(suggestion.suggestion_id);
+            }
           }}
           onRegenerate={() => void handleAIGenerate()}
           onDiscard={() => {
@@ -153,14 +167,14 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <Label className="text-xs text-muted-foreground">Template</Label>
-              <Select value={templateName} onValueChange={setTemplateName}>
+              <Select value={templateId} onValueChange={setTemplateId}>
                 <SelectTrigger className="mt-1 bg-background/60 border-border rounded-xl">
                   <SelectValue placeholder="Choose template" />
                 </SelectTrigger>
                 <SelectContent>
                   {approvedTemplates.map((t) => (
-                    <SelectItem key={t.id} value={t.template_name}>
-                      {t.template_name}
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.displayName || t.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -198,12 +212,15 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
             <Button
               onClick={handleSendTemplate}
               className="bg-gradient-brand text-primary-foreground hover:opacity-90"
-              disabled={!selectedTemplate}
+              disabled={!selectedTemplate || sendTemplate.isPending}
             >
               <Send className="h-4 w-4" />
-              Send template
+              {sendTemplate.isPending ? "Sending..." : "Send template"}
             </Button>
           </div>
+          {sendTemplate.error instanceof Error && (
+            <p className="text-xs text-destructive">{sendTemplate.error.message}</p>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -214,6 +231,14 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
             rows={3}
             className="bg-background/60 border-border rounded-xl resize-none"
           />
+          {sendMessage.error instanceof Error && (
+            <p className="text-xs text-destructive">{sendMessage.error.message}</p>
+          )}
+          {generateSuggestion.error instanceof Error && (
+            <p className="text-xs text-destructive">
+              {generateSuggestion.error.message}
+            </p>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap gap-2">
               <Button
@@ -221,14 +246,10 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
                 size="sm"
                 variant="secondary"
                 onClick={handleAIGenerate}
-                disabled={aiLoading}
+                disabled={generateSuggestion.isPending}
               >
                 <Sparkles className="h-4 w-4" />
-                Generate AI suggestion
-              </Button>
-              <Button type="button" size="sm" variant="outline">
-                <FileText className="h-4 w-4" />
-                Use template
+                Generate AI Reply
               </Button>
               <Button type="button" size="sm" variant="ghost">
                 <Save className="h-4 w-4" />
@@ -242,13 +263,42 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
               <Button
                 onClick={handleSendClick}
                 className="bg-gradient-brand text-primary-foreground hover:opacity-90"
-                disabled={!body.trim()}
+                disabled={!body.trim() || sendMessage.isPending}
               >
                 <Send className="h-4 w-4" />
-                Send reply
+                {sendMessage.isPending ? "Sending..." : "Send reply"}
               </Button>
             </div>
           </div>
+          {insertableTemplates.length > 0 && (
+            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+              <Select value={insertTemplateId} onValueChange={setInsertTemplateId}>
+                <SelectTrigger className="bg-background/60 border-border rounded-xl">
+                  <SelectValue placeholder="Insert template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {insertableTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.displayName || t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!insertTemplate}
+                onClick={() => {
+                  if (!insertTemplate) return;
+                  setBody(insertTemplate.body);
+                  setUsedSuggestion(null);
+                }}
+              >
+                <FileText className="h-4 w-4" />
+                Insert
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

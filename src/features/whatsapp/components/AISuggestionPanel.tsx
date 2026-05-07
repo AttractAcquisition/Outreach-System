@@ -3,14 +3,9 @@ import { Sparkles, Loader2, RefreshCw, Pencil, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import type { CrmStage } from "../types";
+import type { WhatsAppReplySuggestion } from "../types";
 
-export interface AISuggestion {
-  body: string;
-  reasoning: string;
-  suggested_stage: CrmStage;
-  suggested_action: string;
-}
+export type AISuggestion = WhatsAppReplySuggestion;
 
 interface Props {
   suggestion: AISuggestion | null;
@@ -41,7 +36,8 @@ export function AISuggestionPanel({
 
   if (!suggestion) return null;
 
-  const body = editing ? draft : suggestion.body;
+  const body = editing ? draft : suggestion.suggested_body;
+  const confidence = Math.round(suggestion.confidence * 100);
 
   return (
     <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 space-y-3">
@@ -66,20 +62,15 @@ export function AISuggestionPanel({
           className="bg-background/60 border-border rounded-xl"
         />
       ) : (
-        <p className="text-sm whitespace-pre-wrap">{suggestion.body}</p>
+        <p className="text-sm whitespace-pre-wrap">{suggestion.suggested_body}</p>
       )}
 
       <div className="flex flex-wrap gap-2 text-[11px]">
         <Badge variant="outline" className="border-border">
-          Reasoning: {suggestion.reasoning}
-        </Badge>
-      </div>
-      <div className="flex flex-wrap gap-2 text-[11px]">
-        <Badge variant="outline" className="border-accent/30 text-accent">
-          Suggested stage: {suggestion.suggested_stage}
+          Reason: {suggestion.reason}
         </Badge>
         <Badge variant="outline" className="border-accent/30 text-accent">
-          Next action: {suggestion.suggested_action}
+          Confidence: {confidence}%
         </Badge>
       </div>
 
@@ -109,7 +100,7 @@ export function AISuggestionPanel({
             size="sm"
             variant="outline"
             onClick={() => {
-              setDraft(suggestion.body);
+              setDraft(suggestion.suggested_body);
               setEditing(true);
             }}
           >

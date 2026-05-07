@@ -33,14 +33,16 @@ interface Props {
   conversation: WhatsAppConversation | null;
   onOpenProspect?: () => void;
   onUpdate?: (id: string, patch: Partial<WhatsAppConversation>) => void;
+  onRefreshConversations?: () => void;
 }
 
 export function ConversationThread({
   conversation,
   onOpenProspect,
   onUpdate,
+  onRefreshConversations,
 }: Props) {
-  const { messages, loading, error, appendMessage } = useConversationMessages(
+  const { messages, loading, error, reload } = useConversationMessages(
     conversation?.id ?? null,
   );
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -163,7 +165,8 @@ export function ConversationThread({
       <ReplyComposer
         conversation={c}
         onMessageSent={(msg: WhatsAppMessage) => {
-          appendMessage(msg);
+          void reload();
+          onRefreshConversations?.();
           onUpdate?.(c.id, {
             last_message: msg.body,
             last_message_at: msg.created_at,

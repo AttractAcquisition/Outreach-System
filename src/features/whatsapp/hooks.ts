@@ -1,16 +1,60 @@
 import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getWhatsAppConversations, getWhatsAppMessages } from "./api";
+import {
+  addSuppressionEntry,
+  approveWhatsAppSuggestion,
+  archiveWhatsAppTemplate,
+  createWhatsAppTemplate,
+  generateWhatsAppReplySuggestion,
+  getWhatsAppAnalytics,
+  getWhatsAppCampaignLeads,
+  getWhatsAppIntegrationHealth,
+  getWhatsAppPendingSuggestions,
+  getWhatsAppTemplates,
+  getSuppressionList,
+  getWhatsAppConversations,
+  getWhatsAppMessages,
+  isPhoneSuppressed,
+  markWhatsAppSuggestionUsed,
+  removeSuppressionEntry,
+  rejectWhatsAppSuggestion,
+  sendWhatsAppMessage,
+  sendWhatsAppTemplateMessage,
+  syncWhatsAppTemplates,
+  updateWhatsAppTemplate,
+  type AddSuppressionEntryInput,
+  type WhatsAppTemplateInput,
+} from "./api";
 import type {
   CampaignLead,
   CrmStage,
   OutreachQueueItem,
   ProspectDetails,
   SuppressionRecord,
+  WhatsAppAnalyticsRange,
+  WhatsAppAnalyticsSummary,
+  WhatsAppCampaignLead,
+  WhatsAppIntegrationHealth,
+  WhatsAppSuppressionEntry,
   WhatsAppConversation,
   WhatsAppMessage,
+  WhatsAppPendingSuggestion,
+  WhatsAppReplySuggestion,
   WhatsAppTemplate,
 } from "./types";
+
+const suppressionListQueryKey = ["whatsapp", "suppression-list"] as const;
+const whatsAppTemplatesQueryKey = ["whatsapp", "templates"] as const;
+const conversationsQueryKey = ["whatsapp", "conversations"] as const;
+const pendingSuggestionsQueryKey = ["whatsapp", "pending-suggestions"] as const;
+const analyticsQueryKey = (range: WhatsAppAnalyticsRange) =>
+  ["whatsapp", "analytics", range] as const;
+const campaignLeadsQueryKey = (range: WhatsAppAnalyticsRange) =>
+  ["whatsapp", "campaign-leads", range] as const;
+const integrationHealthQueryKey = ["whatsapp", "integration-health"] as const;
+const conversationMessagesQueryKey = (conversationId: string | null) =>
+  ["whatsapp", "messages", conversationId] as const;
 
 // ─── Conversations ───────────────────────────────────────────────
 export function useWhatsAppConversations() {
@@ -108,6 +152,157 @@ export function useConversationMessages(conversationId: string | null) {
   };
 }
 
+export function useSendWhatsAppMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      conversationId,
+      body,
+    }: {
+      conversationId: string;
+      body: string;
+    }) => sendWhatsAppMessage(conversationId, body),
+    onSuccess: async (message) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
+        queryClient.invalidateQueries({
+          queryKey: conversationMessagesQueryKey(message.conversation_id),
+        }),
+      ]);
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not send WhatsApp message",
+      );
+    },
+  });
+}
+
+export function useSendWhatsAppTemplateMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      conversationId,
+      templateId,
+      parameters,
+    }: {
+      conversationId: string;
+      templateId: string;
+      parameters: Record<string, string>;
+    }) => sendWhatsAppTemplateMessage(conversationId, templateId, parameters),
+    onSuccess: async (message) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
+        queryClient.invalidateQueries({
+          queryKey: conversationMessagesQueryKey(message.conversation_id),
+        }),
+      ]);
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not send WhatsApp template message",
+      );
+    },
+  });
+}
+
+export function useGenerateWhatsAppReplySuggestion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (conversationId: string) =>
+      generateWhatsAppReplySuggestion(conversationId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: pendingSuggestionsQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not generate AI reply suggestion",
+      );
+    },
+  });
+}
+
+export function useWhatsAppPendingSuggestions() {
+  const query = useQuery({
+    queryKey: pendingSuggestionsQueryKey,
+    queryFn: getWhatsAppPendingSuggestions,
+  });
+
+  return {
+    suggestions: (query.data ?? []) as WhatsAppPendingSuggestion[],
+    loading: query.isLoading,
+    error:
+      query.error instanceof Error
+        ? query.error.message
+        : null,
+    reload: query.refetch,
+  };
+}
+
+export function useApproveWhatsAppSuggestion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => approveWhatsAppSuggestion(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: pendingSuggestionsQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not approve WhatsApp suggestion",
+      );
+    },
+  });
+}
+
+export function useRejectWhatsAppSuggestion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      rejectWhatsAppSuggestion(id, reason),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: pendingSuggestionsQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not reject WhatsApp suggestion",
+      );
+    },
+  });
+}
+
+export function useMarkWhatsAppSuggestionUsed() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => markWhatsAppSuggestionUsed(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: pendingSuggestionsQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not mark WhatsApp suggestion used",
+      );
+    },
+  });
+}
+
 // ─── Outreach queue ──────────────────────────────────────────────
 export function useOutreachQueue() {
   // TODO: Connect this hook to the real outreach queue Supabase source once available.
@@ -124,40 +319,216 @@ export function useOutreachQueue() {
 
 // ─── Templates ───────────────────────────────────────────────────
 export function useWhatsAppTemplates() {
-  // TODO: Connect this hook to the real WhatsApp templates Supabase source once available.
+  const query = useQuery({
+    queryKey: whatsAppTemplatesQueryKey,
+    queryFn: getWhatsAppTemplates,
+  });
+
   return {
-    templates: [] as WhatsAppTemplate[],
-    loading: false,
-    error: null as string | null,
+    templates: (query.data ?? []) as WhatsAppTemplate[],
+    loading: query.isLoading,
+    error:
+      query.error instanceof Error
+        ? query.error.message
+        : null,
+    reload: query.refetch,
   };
+}
+
+export function useCreateWhatsAppTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: WhatsAppTemplateInput) => createWhatsAppTemplate(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: whatsAppTemplatesQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not create WhatsApp template",
+      );
+    },
+  });
+}
+
+export function useUpdateWhatsAppTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: Partial<WhatsAppTemplateInput>;
+    }) => updateWhatsAppTemplate(id, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: whatsAppTemplatesQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not update WhatsApp template",
+      );
+    },
+  });
+}
+
+export function useArchiveWhatsAppTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => archiveWhatsAppTemplate(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: whatsAppTemplatesQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not archive WhatsApp template",
+      );
+    },
+  });
+}
+
+export function useSyncWhatsAppTemplates() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: syncWhatsAppTemplates,
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: whatsAppTemplatesQueryKey });
+      toast.success(
+        `Synced ${result.fetched} Meta templates (${result.inserted} new, ${result.updated} updated)`,
+      );
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not sync WhatsApp templates",
+      );
+    },
+  });
 }
 
 // ─── Suppression ─────────────────────────────────────────────────
 export function useSuppressionList() {
-  // TODO: Connect this hook to the real suppression list Supabase source once available.
-  const add = useCallback((_rec: SuppressionRecord) => {
-    toast.error("Suppression data source is not configured");
-  }, []);
-  const remove = useCallback((_id: string) => {
-    toast.error("Suppression data source is not configured");
-  }, []);
+  const query = useQuery({
+    queryKey: suppressionListQueryKey,
+    queryFn: getSuppressionList,
+  });
 
   return {
-    records: [] as SuppressionRecord[],
-    loading: false,
-    error: null as string | null,
-    add,
-    remove,
+    records: (query.data ?? []) as WhatsAppSuppressionEntry[],
+    loading: query.isLoading,
+    error:
+      query.error instanceof Error
+        ? query.error.message
+        : null,
+    reload: query.refetch,
+  };
+}
+
+export function useAddSuppressionEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: AddSuppressionEntryInput) => addSuppressionEntry(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: suppressionListQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not add suppression entry",
+      );
+    },
+  });
+}
+
+export function useRemoveSuppressionEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => removeSuppressionEntry(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: suppressionListQueryKey });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not remove suppression entry",
+      );
+    },
+  });
+}
+
+export function useIsPhoneSuppressed(normalizedPhoneNumber: string) {
+  return useQuery({
+    queryKey: ["whatsapp", "suppression-check", normalizedPhoneNumber],
+    queryFn: () => isPhoneSuppressed(normalizedPhoneNumber),
+    enabled: normalizedPhoneNumber.length > 0,
+  });
+}
+
+// ─── Analytics ──────────────────────────────────────────────────
+export function useWhatsAppAnalytics(range: WhatsAppAnalyticsRange = "7d") {
+  const query = useQuery({
+    queryKey: analyticsQueryKey(range),
+    queryFn: () => getWhatsAppAnalytics(range),
+  });
+
+  return {
+    analytics: query.data as WhatsAppAnalyticsSummary | undefined,
+    loading: query.isLoading,
+    error:
+      query.error instanceof Error
+        ? query.error.message
+        : null,
+    reload: query.refetch,
   };
 }
 
 // ─── Campaign leads ──────────────────────────────────────────────
-export function useCampaignLeads() {
-  // TODO: Connect this hook to the real campaign leads Supabase source once available.
+export function useCampaignLeads(range: WhatsAppAnalyticsRange = "7d") {
+  const query = useQuery({
+    queryKey: campaignLeadsQueryKey(range),
+    queryFn: () => getWhatsAppCampaignLeads(range),
+  });
+
   return {
-    leads: [] as CampaignLead[],
-    loading: false,
-    error: null as string | null,
+    leads: (query.data ?? []) as WhatsAppCampaignLead[],
+    loading: query.isLoading,
+    error:
+      query.error instanceof Error
+        ? query.error.message
+        : null,
+    reload: query.refetch,
+  };
+}
+
+// ─── Integration health ──────────────────────────────────────────
+export function useWhatsAppIntegrationHealth() {
+  const query = useQuery({
+    queryKey: integrationHealthQueryKey,
+    queryFn: getWhatsAppIntegrationHealth,
+  });
+
+  return {
+    health: query.data as WhatsAppIntegrationHealth | undefined,
+    loading: query.isLoading,
+    error:
+      query.error instanceof Error
+        ? query.error.message
+        : null,
+    reload: query.refetch,
   };
 }
 
@@ -191,25 +562,53 @@ export function formatCountdown(ms: number) {
 
 // ─── Backend actions ─────────────────────────────────────────────
 export async function sendFreeformMessage(
-  _conversationId: string,
-  _body: string,
+  conversationId: string,
+  body: string,
 ) {
-  toast.error("Message sending is not connected to a backend yet");
-  return { ok: false };
+  try {
+    const message = await sendWhatsAppMessage(conversationId, body);
+    return { ok: true, message };
+  } catch (err) {
+    toast.error(
+      err instanceof Error ? err.message : "Could not send WhatsApp message",
+    );
+    return { ok: false };
+  }
 }
 
 export async function sendTemplateMessage(
-  _conversationId: string,
-  _templateName: string,
-  _params: Record<string, string>,
+  conversationId: string,
+  templateId: string,
+  params: Record<string, string>,
 ) {
-  toast.error("Template sending is not connected to a backend yet");
-  return { ok: false };
+  try {
+    const message = await sendWhatsAppTemplateMessage(
+      conversationId,
+      templateId,
+      params,
+    );
+    return { ok: true, message };
+  } catch (err) {
+    toast.error(
+      err instanceof Error
+        ? err.message
+        : "Could not send WhatsApp template message",
+    );
+    return { ok: false };
+  }
 }
 
-export async function generateAIReply(_conversationId: string) {
-  toast.error("AI reply generation is not connected to a backend yet");
-  return null;
+export async function generateAIReply(conversationId: string) {
+  try {
+    return await generateWhatsAppReplySuggestion(conversationId);
+  } catch (err) {
+    toast.error(
+      err instanceof Error
+        ? err.message
+        : "Could not generate AI reply suggestion",
+    );
+    return null;
+  }
 }
 
 export async function approveQueueItem(_id: string) {
@@ -244,7 +643,14 @@ export type {
   OutreachQueueItem,
   ProspectDetails,
   SuppressionRecord,
+  WhatsAppAnalyticsRange,
+  WhatsAppAnalyticsSummary,
+  WhatsAppCampaignLead,
+  WhatsAppIntegrationHealth,
+  WhatsAppSuppressionEntry,
   WhatsAppConversation,
   WhatsAppMessage,
+  WhatsAppPendingSuggestion,
+  WhatsAppReplySuggestion,
   WhatsAppTemplate,
 };

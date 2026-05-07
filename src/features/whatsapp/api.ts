@@ -1,10 +1,24 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/database.types";
+import { normalizePhoneNumber } from "./phone";
 import type {
   ConversationSource,
   CrmStage,
   ServiceWindowStatus,
+  SuppressionReason,
+  WhatsAppAnalyticsRange,
+  WhatsAppAnalyticsSummary,
+  WhatsAppBreakdownItem,
+  WhatsAppCampaignLead,
+  WhatsAppIntegrationHealth,
+  WhatsAppTemplate,
+  WhatsAppTemplateFormInput,
+  WhatsAppTemplateSyncResult,
+  WhatsAppSuppressionEntry,
   WhatsAppConversation,
   WhatsAppMessage,
+  WhatsAppPendingSuggestion,
+  WhatsAppReplySuggestion,
 } from "./types";
 
 type ProspectJoin = {
@@ -76,6 +90,153 @@ type WhatsAppMessageRow = {
   delivered_at: string | null;
   read_at: string | null;
 };
+
+type SuppressionRow = {
+  added_by: string | null;
+  conversation_id: string | null;
+  created_at: string;
+  id: string;
+  metadata: Json;
+  normalized_phone_number: string;
+  notes: string | null;
+  phone_number: string;
+  prospect_id: string | null;
+  reason: string;
+  removed_at: string | null;
+  removed_by: string | null;
+  source: string;
+  status: string;
+  updated_at: string;
+};
+
+type WhatsAppTemplateRow = {
+  body: string;
+  category: string;
+  components: Json;
+  created_at: string;
+  created_by: string | null;
+  display_name: string | null;
+  id: string;
+  language: string;
+  meta_quality_rating: string | null;
+  meta_status: string | null;
+  meta_template_id: string | null;
+  metadata: Json;
+  name: string;
+  phone_number_id: string | null;
+  status: string;
+  updated_at: string;
+  usable_inside_window: boolean;
+  usable_outside_window: boolean;
+  variables: Json;
+  whatsapp_business_account_id: string | null;
+};
+
+type WhatsAppAiSuggestionRow = {
+  approved_at: string | null;
+  approved_by: string | null;
+  client_id: string | null;
+  confidence: number | null;
+  conversation_id: string;
+  created_at: string;
+  created_by: string | null;
+  id: string;
+  metadata: Json;
+  model: string | null;
+  prospect_id: string | null;
+  provider: string | null;
+  reason: string | null;
+  rejected_at: string | null;
+  status: string;
+  suggested_body: string;
+  updated_at: string;
+  conversation?: {
+    id: string;
+    contact_name: string | null;
+    phone_number: string | null;
+    status: string | null;
+    stage: string | null;
+    last_message_preview: string | null;
+    last_message_at: string | null;
+    service_window_open_until: string | null;
+  } | null;
+  prospect?: {
+    id: string;
+    business_name: string | null;
+    owner_name: string | null;
+    phone: string | null;
+    whatsapp: string | null;
+    vertical: string | null;
+    city: string | null;
+    suburb: string | null;
+    pipeline_stage: string | null;
+    icp_total_score: number | null;
+    status: string | null;
+  } | null;
+};
+
+type AnalyticsConversationRow = {
+  id: string;
+  campaign_id: string | null;
+  client_id: string | null;
+  prospect_id: string | null;
+  contact_name: string | null;
+  phone_number: string;
+  source: string;
+  stage: string;
+  status: string;
+  unread_count: number;
+  needs_human: boolean;
+  service_window_open_until: string | null;
+  last_message_preview: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  campaigns?: {
+    id: string;
+    name: string;
+    status: string;
+    channel: string | null;
+  } | null;
+  clients?: {
+    id: string;
+    business_name: string;
+  } | null;
+  prospects?: {
+    id: string;
+    business_name: string | null;
+    owner_name: string | null;
+    data_source: string | null;
+    source_list: string | null;
+    status: string | null;
+    pipeline_stage: string | null;
+    icp_total_score: number | null;
+  } | null;
+};
+
+type AnalyticsMessageRow = {
+  id: string;
+  direction: string;
+  status: string;
+  created_at: string;
+};
+
+type StatusRow = {
+  id: string;
+  status: string;
+  created_at?: string;
+};
+
+export type AddSuppressionEntryInput = {
+  phoneNumber: string;
+  reason?: SuppressionReason;
+  source?: string;
+  notes?: string | null;
+  prospectId?: string | null;
+  conversationId?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type WhatsAppTemplateInput = WhatsAppTemplateFormInput;
 
 function toConversationSource(source: string): ConversationSource {
   switch (source) {
@@ -272,4 +433,967 @@ export async function getWhatsAppMessages(conversationId: string) {
   }
 
   return ((data ?? []) as WhatsAppMessageRow[]).map(mapMessage);
+}
+
+export async function sendWhatsAppMessage(conversationId: string, body: string) {
+  const messageBody = body.trim();
+
+  if (!conversationId) {
+    throw new Error("Conversation is required");
+  }
+
+  if (!messageBody) {
+    throw new Error("Message body is required");
+  }
+
+  const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
+    body: {
+      conversation_id: conversationId,
+      body: messageBody,
+    },
+  });
+
+  if (error) {
+    const context = "context" in error ? error.context : null;
+
+    if (context instanceof Response) {
+      let functionError: string | null = null;
+
+      try {
+        const errorBody = await context.json();
+        if (typeof errorBody?.error === "string") {
+          functionError = errorBody.error;
+        }
+      } catch (_parseError) {
+        // Fall through to the Supabase Functions error message.
+      }
+
+      if (functionError) {
+        throw new Error(functionError);
+      }
+    }
+
+    throw new Error(error.message);
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  if (!data?.message) {
+    throw new Error("WhatsApp message response was empty");
+  }
+
+  return mapMessage(data.message as WhatsAppMessageRow);
+}
+
+export async function sendWhatsAppTemplateMessage(
+  conversationId: string,
+  templateId: string,
+  parameters: Record<string, string>,
+) {
+  if (!conversationId) {
+    throw new Error("Conversation is required");
+  }
+
+  if (!templateId) {
+    throw new Error("Template is required");
+  }
+
+  const { data, error } = await supabase.functions.invoke(
+    "send-whatsapp-template-message",
+    {
+      body: {
+        conversation_id: conversationId,
+        template_id: templateId,
+        parameters,
+      },
+    },
+  );
+
+  if (error) {
+    const functionError = await getFunctionErrorMessage(error);
+    throw new Error(functionError ?? error.message);
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  if (!data?.message) {
+    throw new Error("WhatsApp template message response was empty");
+  }
+
+  return mapMessage(data.message as WhatsAppMessageRow);
+}
+
+async function getFunctionErrorMessage(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "context" in error &&
+    (error as { context?: unknown }).context instanceof Response
+  ) {
+    try {
+      const errorBody = await (error as { context: Response }).context.json();
+      if (typeof errorBody?.error === "string") {
+        return errorBody.error;
+      }
+    } catch (_parseError) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+export async function generateWhatsAppReplySuggestion(
+  conversationId: string,
+): Promise<WhatsAppReplySuggestion> {
+  if (!conversationId) {
+    throw new Error("Conversation is required");
+  }
+
+  const { data, error } = await supabase.functions.invoke(
+    "generate-whatsapp-reply-suggestion",
+    {
+      body: {
+        conversation_id: conversationId,
+      },
+    },
+  );
+
+  if (error) {
+    const functionError = await getFunctionErrorMessage(error);
+    throw new Error(functionError ?? error.message);
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  if (!data?.suggested_body) {
+    throw new Error("AI suggestion response was empty");
+  }
+
+  return {
+    suggestion_id: data.suggestion_id ?? null,
+    suggested_body: String(data.suggested_body),
+    reason: typeof data.reason === "string" ? data.reason : "",
+    confidence:
+      typeof data.confidence === "number"
+        ? data.confidence
+        : Number(data.confidence ?? 0),
+  };
+}
+
+function asRecord(value: Json): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function asArray(value: Json): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asStringArray(value: Json): string[] {
+  return asArray(value).filter((item): item is string => typeof item === "string");
+}
+
+function getAnalyticsBounds(range: WhatsAppAnalyticsRange) {
+  const now = new Date();
+  const end = now.toISOString();
+
+  if (range === "all") {
+    return { start: null as string | null, end };
+  }
+
+  if (range === "today") {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return { start: start.toISOString(), end };
+  }
+
+  const days = range === "30d" ? 30 : 7;
+  const start = new Date(now);
+  start.setDate(start.getDate() - days + 1);
+  start.setHours(0, 0, 0, 0);
+
+  return { start: start.toISOString(), end };
+}
+
+function applyCreatedAtRange<T>(
+  query: T,
+  range: { start: string | null; end: string },
+): T {
+  let ranged = query as any;
+  if (range.start) {
+    ranged = ranged.gte("created_at", range.start);
+  }
+  return ranged.lte("created_at", range.end) as T;
+}
+
+function countBy<T>(
+  rows: T[],
+  getLabel: (row: T) => string | null | undefined,
+): WhatsAppBreakdownItem[] {
+  const counts = new Map<string, number>();
+
+  for (const row of rows) {
+    const rawLabel = getLabel(row)?.trim();
+    const label = rawLabel || "Unknown";
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+}
+
+function isToday(value: string | null | undefined) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
+async function getAnalyticsConversations(
+  range: { start: string | null; end: string },
+  includeJoins = false,
+) {
+  const select = includeJoins
+    ? `
+        id,
+        campaign_id,
+        client_id,
+        prospect_id,
+        contact_name,
+        phone_number,
+        source,
+        stage,
+        status,
+        unread_count,
+        needs_human,
+        service_window_open_until,
+        last_message_preview,
+        last_message_at,
+        created_at,
+        campaigns:campaign_id (
+          id,
+          name,
+          status,
+          channel
+        ),
+        clients:client_id (
+          id,
+          business_name
+        ),
+        prospects:prospect_id (
+          id,
+          business_name,
+          owner_name,
+          data_source,
+          source_list,
+          status,
+          pipeline_stage,
+          icp_total_score
+        )
+      `
+    : "id, campaign_id, client_id, prospect_id, source, stage, status, unread_count, needs_human, service_window_open_until, created_at";
+
+  let query = (supabase as any).from("whatsapp_conversations").select(select);
+  query = applyCreatedAtRange(query, range);
+  query = query.order("created_at", { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as AnalyticsConversationRow[];
+}
+
+async function getAllAnalyticsConversations() {
+  const { data, error } = await (supabase as any)
+    .from("whatsapp_conversations")
+    .select("id, campaign_id, client_id, prospect_id, source, stage, status, unread_count, needs_human, service_window_open_until, created_at");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as AnalyticsConversationRow[];
+}
+
+async function getAnalyticsMessages(range: { start: string | null; end: string }) {
+  let query = (supabase as any)
+    .from("whatsapp_messages")
+    .select("id, direction, status, created_at");
+  query = applyCreatedAtRange(query, range);
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as AnalyticsMessageRow[];
+}
+
+async function getStatusRows(
+  table:
+    | "whatsapp_suppression_list"
+    | "whatsapp_templates"
+    | "whatsapp_ai_suggestions",
+  range?: { start: string | null; end: string },
+) {
+  let query = (supabase as any).from(table).select("id, status, created_at");
+  if (range) {
+    query = applyCreatedAtRange(query, range);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as StatusRow[];
+}
+
+export async function getWhatsAppAnalytics(
+  range: WhatsAppAnalyticsRange = "7d",
+): Promise<WhatsAppAnalyticsSummary> {
+  const bounds = getAnalyticsBounds(range);
+  const now = new Date();
+
+  const [
+    allConversations,
+    rangeConversations,
+    messages,
+    suppressionRows,
+    templateRows,
+    suggestionRows,
+  ] = await Promise.all([
+    getAllAnalyticsConversations(),
+    getAnalyticsConversations(bounds, true),
+    getAnalyticsMessages(bounds),
+    getStatusRows("whatsapp_suppression_list"),
+    getStatusRows("whatsapp_templates"),
+    getStatusRows("whatsapp_ai_suggestions", bounds),
+  ]);
+
+  const inboundMessages = messages.filter((message) => message.direction === "inbound");
+  const outboundMessages = messages.filter((message) => message.direction === "outbound");
+  const activeServiceWindows = allConversations.filter((conversation) => {
+    if (!conversation.service_window_open_until) return false;
+    const expiresAt = new Date(conversation.service_window_open_until);
+    return !Number.isNaN(expiresAt.getTime()) && expiresAt > now;
+  }).length;
+  const expiredServiceWindows = allConversations.filter((conversation) => {
+    if (!conversation.service_window_open_until) return false;
+    const expiresAt = new Date(conversation.service_window_open_until);
+    return !Number.isNaN(expiresAt.getTime()) && expiresAt <= now;
+  }).length;
+  const campaignAttributed = rangeConversations.filter(
+    (conversation) => Boolean(conversation.campaign_id),
+  );
+
+  return {
+    range,
+    totalConversations: allConversations.length,
+    conversationsToday: allConversations.filter((conversation) =>
+      isToday(conversation.created_at),
+    ).length,
+    openConversations: allConversations.filter(
+      (conversation) => conversation.status === "open",
+    ).length,
+    conversationsNeedingHuman: allConversations.filter(
+      (conversation) => conversation.needs_human,
+    ).length,
+    unreadConversations: allConversations.filter(
+      (conversation) => conversation.unread_count > 0,
+    ).length,
+    activeServiceWindows,
+    expiredServiceWindows,
+    inboundMessages: inboundMessages.length,
+    outboundMessages: outboundMessages.length,
+    messagesSentToday: outboundMessages.filter((message) =>
+      isToday(message.created_at),
+    ).length,
+    messagesReceivedToday: inboundMessages.filter((message) =>
+      isToday(message.created_at),
+    ).length,
+    failedOutboundMessages: outboundMessages.filter(
+      (message) => message.status === "failed",
+    ).length,
+    suppressedNumbers: suppressionRows.filter((row) => row.status === "active").length,
+    activeTemplates: templateRows.filter((row) => row.status !== "archived").length,
+    pendingAiSuggestions: suggestionRows.filter((row) =>
+      ["pending_review", "pending"].includes(row.status),
+    ).length,
+    approvedAiSuggestions: suggestionRows.filter((row) => row.status === "approved")
+      .length,
+    rejectedAiSuggestions: suggestionRows.filter((row) => row.status === "rejected")
+      .length,
+    campaignAttributedConversations: campaignAttributed.length,
+    costPerConversation: null,
+    costPerQualifiedLead: null,
+    conversationsBySource: countBy(rangeConversations, (row) => row.source),
+    conversationsByStage: countBy(rangeConversations, (row) => row.stage),
+    conversationsByCampaign: countBy(
+      campaignAttributed,
+      (row) => row.campaigns?.name ?? row.campaign_id,
+    ),
+    conversationsByClient: countBy(
+      rangeConversations.filter((row) => Boolean(row.client_id)),
+      (row) => row.clients?.business_name ?? row.client_id,
+    ),
+    conversationsByProspectSource: countBy(
+      rangeConversations.filter((row) => Boolean(row.prospect_id)),
+      (row) => row.prospects?.data_source ?? row.prospects?.source_list,
+    ),
+    messagesByDirection: countBy(messages, (row) => row.direction),
+    messagesByStatus: countBy(messages, (row) => row.status),
+  };
+}
+
+function mapCampaignLead(row: AnalyticsConversationRow): WhatsAppCampaignLead {
+  const prospect = row.prospects;
+  const client = row.clients;
+  const campaign = row.campaigns;
+  const businessName = firstString(
+    prospect?.business_name,
+    row.contact_name,
+    client?.business_name,
+    row.phone_number,
+  );
+  const contactName = firstString(prospect?.owner_name, row.contact_name, row.phone_number);
+
+  return {
+    id: row.id,
+    conversationId: row.id,
+    campaignId: row.campaign_id ?? "",
+    campaignName: campaign?.name ?? row.campaign_id ?? "Unknown campaign",
+    campaignStatus: campaign?.status ?? "unknown",
+    campaignChannel: campaign?.channel ?? null,
+    clientId: row.client_id,
+    clientName: client?.business_name ?? null,
+    prospectId: row.prospect_id,
+    businessName,
+    contactName,
+    phoneNumber: row.phone_number,
+    source: row.source,
+    stage: row.stage,
+    status: row.status,
+    unreadCount: row.unread_count,
+    needsHuman: row.needs_human,
+    lastMessage: row.last_message_preview ?? "",
+    lastMessageAt: row.last_message_at,
+    serviceWindowOpenUntil: row.service_window_open_until,
+    prospectSource: prospect?.data_source ?? prospect?.source_list ?? null,
+    prospectStatus: prospect?.status ?? null,
+    prospectPipelineStage: prospect?.pipeline_stage ?? null,
+    leadScore: prospect?.icp_total_score ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+export async function getWhatsAppCampaignLeads(
+  range: WhatsAppAnalyticsRange = "7d",
+) {
+  const bounds = getAnalyticsBounds(range);
+  const rows = await getAnalyticsConversations(bounds, true);
+
+  return rows
+    .filter((row) => Boolean(row.campaign_id))
+    .map(mapCampaignLead);
+}
+
+export async function getWhatsAppIntegrationHealth() {
+  const { data, error } = await supabase.functions.invoke(
+    "whatsapp-integration-health",
+    { body: {} },
+  );
+
+  if (error) {
+    const functionError = await getFunctionErrorMessage(error);
+    throw new Error(functionError ?? error.message);
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return data as WhatsAppIntegrationHealth;
+}
+
+export async function syncWhatsAppTemplates(): Promise<WhatsAppTemplateSyncResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "sync-whatsapp-templates",
+    { body: {} },
+  );
+
+  if (error) {
+    const functionError = await getFunctionErrorMessage(error);
+    throw new Error(functionError ?? error.message);
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return {
+    ok: Boolean(data?.ok),
+    fetched: Number(data?.fetched ?? 0),
+    inserted: Number(data?.inserted ?? 0),
+    updated: Number(data?.updated ?? 0),
+  };
+}
+
+function mapPendingSuggestion(
+  row: WhatsAppAiSuggestionRow,
+): WhatsAppPendingSuggestion {
+  return {
+    id: row.id,
+    conversation_id: row.conversation_id,
+    prospect_id: row.prospect_id,
+    client_id: row.client_id,
+    suggested_body: row.suggested_body,
+    reason: row.reason,
+    confidence: row.confidence,
+    status: row.status,
+    provider: row.provider,
+    model: row.model,
+    created_by: row.created_by,
+    approved_by: row.approved_by,
+    approved_at: row.approved_at,
+    rejected_at: row.rejected_at,
+    metadata: asRecord(row.metadata),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    conversation: row.conversation ?? null,
+    prospect: row.prospect ?? null,
+  };
+}
+
+async function getCurrentUserId() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    throw new Error("Authentication required");
+  }
+
+  return user.id;
+}
+
+async function getSuggestionMetadata(id: string) {
+  const { data, error } = await supabase
+    .from("whatsapp_ai_suggestions")
+    .select("metadata")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return asRecord(data.metadata);
+}
+
+export async function getWhatsAppPendingSuggestions() {
+  const { data, error } = await (supabase as any)
+    .from("whatsapp_ai_suggestions")
+    .select(
+      `
+        *,
+        conversation:whatsapp_conversations!whatsapp_ai_suggestions_conversation_id_fkey (
+          id,
+          contact_name,
+          phone_number,
+          status,
+          stage,
+          last_message_preview,
+          last_message_at,
+          service_window_open_until
+        ),
+        prospect:prospects!whatsapp_ai_suggestions_prospect_id_fkey (
+          id,
+          business_name,
+          owner_name,
+          phone,
+          whatsapp,
+          vertical,
+          city,
+          suburb,
+          pipeline_stage,
+          icp_total_score,
+          status
+        )
+      `,
+    )
+    .in("status", ["pending_review", "pending"])
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as WhatsAppAiSuggestionRow[]).map(mapPendingSuggestion);
+}
+
+export async function approveWhatsAppSuggestion(id: string) {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("whatsapp_ai_suggestions")
+    .update({
+      status: "approved",
+      approved_by: userId,
+      approved_at: new Date().toISOString(),
+      rejected_at: null,
+    })
+    .eq("id", id)
+    .in("status", ["pending_review", "pending"])
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapPendingSuggestion(data as WhatsAppAiSuggestionRow);
+}
+
+export async function rejectWhatsAppSuggestion(id: string, reason?: string) {
+  const metadata = await getSuggestionMetadata(id);
+  const rejectionReason = reason?.trim() || null;
+
+  const { data, error } = await supabase
+    .from("whatsapp_ai_suggestions")
+    .update({
+      status: "rejected",
+      rejected_at: new Date().toISOString(),
+      approved_by: null,
+      approved_at: null,
+      metadata: {
+        ...metadata,
+        rejection_reason: rejectionReason,
+      } as Json,
+    })
+    .eq("id", id)
+    .in("status", ["pending_review", "pending", "approved"])
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapPendingSuggestion(data as WhatsAppAiSuggestionRow);
+}
+
+export async function markWhatsAppSuggestionUsed(id: string) {
+  const userId = await getCurrentUserId();
+  const metadata = await getSuggestionMetadata(id);
+  const usedAt = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("whatsapp_ai_suggestions")
+    .update({
+      status: "used",
+      approved_by: userId,
+      approved_at: usedAt,
+      metadata: {
+        ...metadata,
+        used_at: usedAt,
+      } as Json,
+    })
+    .eq("id", id)
+    .in("status", ["pending_review", "pending", "approved"])
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapPendingSuggestion(data as WhatsAppAiSuggestionRow);
+}
+
+function mapSuppression(row: SuppressionRow): WhatsAppSuppressionEntry {
+  return {
+    id: row.id,
+    phoneNumber: row.phone_number,
+    normalizedPhoneNumber: row.normalized_phone_number,
+    reason: row.reason as SuppressionReason,
+    source: row.source,
+    status: row.status,
+    prospectId: row.prospect_id,
+    conversationId: row.conversation_id,
+    addedBy: row.added_by,
+    removedBy: row.removed_by,
+    removedAt: row.removed_at,
+    notes: row.notes ?? undefined,
+    metadata: asRecord(row.metadata),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function getSuppressionList() {
+  const { data, error } = await supabase
+    .from("whatsapp_suppression_list")
+    .select("*")
+    .order("status", { ascending: true })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as SuppressionRow[]).map(mapSuppression);
+}
+
+export async function addSuppressionEntry(input: AddSuppressionEntryInput) {
+  const normalizedPhoneNumber = normalizePhoneNumber(input.phoneNumber);
+
+  if (!normalizedPhoneNumber) {
+    throw new Error("Phone number is required");
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from("whatsapp_suppression_list")
+    .insert({
+      phone_number: input.phoneNumber.trim(),
+      normalized_phone_number: normalizedPhoneNumber,
+      reason: input.reason ?? "manual",
+      source: input.source ?? "manual",
+      status: "active",
+      prospect_id: input.prospectId ?? null,
+      conversation_id: input.conversationId ?? null,
+      added_by: user?.id ?? null,
+      notes: input.notes?.trim() || null,
+      metadata: (input.metadata ?? {}) as Json,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapSuppression(data as SuppressionRow);
+}
+
+export async function removeSuppressionEntry(id: string) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from("whatsapp_suppression_list")
+    .update({
+      status: "removed",
+      removed_at: new Date().toISOString(),
+      removed_by: user?.id ?? null,
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapSuppression(data as SuppressionRow);
+}
+
+export async function isPhoneSuppressed(normalizedPhoneNumber: string) {
+  if (!normalizedPhoneNumber) return false;
+
+  const { data, error } = await supabase
+    .from("whatsapp_suppression_list")
+    .select("id")
+    .eq("normalized_phone_number", normalizedPhoneNumber)
+    .eq("status", "active")
+    .limit(1);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).length > 0;
+}
+
+function mapTemplate(row: WhatsAppTemplateRow): WhatsAppTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    displayName: row.display_name,
+    category: row.category,
+    language: row.language,
+    body: row.body,
+    variables: asStringArray(row.variables),
+    components: asArray(row.components),
+    status: row.status,
+    metaTemplateId: row.meta_template_id,
+    metaStatus: row.meta_status,
+    metaQualityRating: row.meta_quality_rating,
+    whatsappBusinessAccountId: row.whatsapp_business_account_id,
+    phoneNumberId: row.phone_number_id,
+    usableInsideWindow: row.usable_inside_window,
+    usableOutsideWindow: row.usable_outside_window,
+    createdBy: row.created_by,
+    metadata: asRecord(row.metadata),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function buildTemplatePayload(input: WhatsAppTemplateInput) {
+  return {
+    name: input.name.trim(),
+    display_name: input.displayName?.trim() || null,
+    category: input.category ?? "utility",
+    language: input.language?.trim() || "en",
+    body: input.body,
+    variables: input.variables as Json,
+    components: (input.components ?? []) as Json,
+    status: input.status ?? "draft",
+    meta_template_id: input.metaTemplateId?.trim() || null,
+    meta_status: input.metaStatus?.trim() || null,
+    meta_quality_rating: input.metaQualityRating?.trim() || null,
+    whatsapp_business_account_id: input.whatsappBusinessAccountId?.trim() || null,
+    phone_number_id: input.phoneNumberId?.trim() || null,
+    usable_inside_window: input.usableInsideWindow ?? true,
+    usable_outside_window: input.usableOutsideWindow ?? false,
+    metadata: (input.metadata ?? {}) as Json,
+  };
+}
+
+export async function getWhatsAppTemplates() {
+  const { data, error } = await supabase
+    .from("whatsapp_templates")
+    .select("*")
+    .order("status", { ascending: true })
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as WhatsAppTemplateRow[]).map(mapTemplate);
+}
+
+export async function createWhatsAppTemplate(input: WhatsAppTemplateInput) {
+  const payload = buildTemplatePayload(input);
+
+  if (!payload.name) {
+    throw new Error("Template name is required");
+  }
+
+  if (!payload.body.trim()) {
+    throw new Error("Template body is required");
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from("whatsapp_templates")
+    .insert({
+      ...payload,
+      created_by: user?.id ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapTemplate(data as WhatsAppTemplateRow);
+}
+
+export async function updateWhatsAppTemplate(
+  id: string,
+  input: Partial<WhatsAppTemplateInput>,
+) {
+  const payload: Record<string, Json | string | boolean | null> = {};
+
+  if (input.name !== undefined) payload.name = input.name.trim();
+  if (input.displayName !== undefined) {
+    payload.display_name = input.displayName?.trim() || null;
+  }
+  if (input.category !== undefined) payload.category = input.category;
+  if (input.language !== undefined) payload.language = input.language.trim() || "en";
+  if (input.body !== undefined) payload.body = input.body;
+  if (input.variables !== undefined) payload.variables = input.variables as Json;
+  if (input.components !== undefined) payload.components = input.components as Json;
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.metaTemplateId !== undefined) {
+    payload.meta_template_id = input.metaTemplateId?.trim() || null;
+  }
+  if (input.metaStatus !== undefined) {
+    payload.meta_status = input.metaStatus?.trim() || null;
+  }
+  if (input.metaQualityRating !== undefined) {
+    payload.meta_quality_rating = input.metaQualityRating?.trim() || null;
+  }
+  if (input.whatsappBusinessAccountId !== undefined) {
+    payload.whatsapp_business_account_id =
+      input.whatsappBusinessAccountId?.trim() || null;
+  }
+  if (input.phoneNumberId !== undefined) {
+    payload.phone_number_id = input.phoneNumberId?.trim() || null;
+  }
+  if (input.usableInsideWindow !== undefined) {
+    payload.usable_inside_window = input.usableInsideWindow;
+  }
+  if (input.usableOutsideWindow !== undefined) {
+    payload.usable_outside_window = input.usableOutsideWindow;
+  }
+  if (input.metadata !== undefined) payload.metadata = input.metadata as Json;
+
+  if (typeof payload.name === "string" && !payload.name) {
+    throw new Error("Template name is required");
+  }
+
+  if (typeof payload.body === "string" && !payload.body.trim()) {
+    throw new Error("Template body is required");
+  }
+
+  const { data, error } = await supabase
+    .from("whatsapp_templates")
+    .update(payload)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapTemplate(data as WhatsAppTemplateRow);
+}
+
+export async function archiveWhatsAppTemplate(id: string) {
+  return updateWhatsAppTemplate(id, { status: "archived" });
 }

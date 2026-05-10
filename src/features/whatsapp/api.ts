@@ -1408,25 +1408,18 @@ type OutreachQueueRow = {
   id: string;
   prospect_id: string;
   conversation_id: string | null;
-  business_name: string | null;
+  company_name: string | null;
   contact_name: string | null;
   phone_number: string | null;
-  niche: string | null;
-  location: string | null;
-  template_name: string | null;
-  template_params: Json;
-  draft_preview: string | null;
   drafted_message: string | null;
-  ai_observation: string | null;
-  risk_score: number | null;
-  compliance_status: string | null;
+  quality_score: number | null;
   status: string;
   created_at: string;
-  created_by: string | null;
   approved_by: string | null;
   approved_at: string | null;
   sent_at: string | null;
   error_message: string | null;
+  metadata: Json;
 };
 
 function toQueueStatus(status: string): QueueStatus {
@@ -1451,21 +1444,20 @@ function mapOutreachQueueItem(row: OutreachQueueRow): OutreachQueueItem {
   return {
     id: row.id,
     prospect_id: row.prospect_id,
-    business_name: row.business_name ?? "",
+    business_name: row.company_name ?? "",
     contact_name: row.contact_name ?? "",
     phone_number: row.phone_number ?? "",
-    niche: row.niche ?? "",
-    location: row.location ?? "",
-    template_name: row.template_name ?? "",
-    template_params: asRecord(row.template_params) as Record<string, string>,
-    draft_preview: row.draft_preview ?? row.drafted_message ?? "",
-    ai_observation: row.ai_observation ?? "",
-    risk_score: row.risk_score ?? 0,
-    compliance_status:
-      (row.compliance_status as "ok" | "warning" | "blocked") ?? "ok",
+    niche: "",
+    location: "",
+    template_name: "",
+    template_params: {},
+    draft_preview: row.drafted_message ?? "",
+    ai_observation: "",
+    risk_score: row.quality_score ?? 0,
+    compliance_status: "ok",
     status: toQueueStatus(row.status),
     created_at: row.created_at,
-    created_by: row.created_by ?? "",
+    created_by: "",
     approved_by: row.approved_by ?? undefined,
     approved_at: row.approved_at ?? undefined,
     sent_at: row.sent_at ?? undefined,
@@ -1489,7 +1481,12 @@ export async function getOutreachQueue(): Promise<OutreachQueueItem[]> {
 }
 
 export async function approveOutreachQueueItem(id: string) {
-  const userId = await getCurrentUserId();
+  let userId: string | null = null;
+  try {
+    userId = await getCurrentUserId();
+  } catch {
+    // No auth session — proceed with null approved_by
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
@@ -1500,7 +1497,7 @@ export async function approveOutreachQueueItem(id: string) {
       approved_by: userId,
     })
     .eq("id", id)
-    .select("conversation_id, drafted_message, draft_preview")
+    .select("conversation_id, drafted_message")
     .single();
 
   if (error) {
@@ -1508,9 +1505,7 @@ export async function approveOutreachQueueItem(id: string) {
   }
 
   const conversationId = (data as OutreachQueueRow).conversation_id;
-  const body =
-    (data as OutreachQueueRow).drafted_message ??
-    (data as OutreachQueueRow).draft_preview;
+  const body = (data as OutreachQueueRow).drafted_message;
 
   if (conversationId && body) {
     const { error: fnError } = await supabase.functions.invoke(
@@ -1531,7 +1526,7 @@ export async function rejectOutreachQueueItem(id: string, reason?: string) {
     .from("whatsapp_outreach_queue")
     .update({
       status: "rejected",
-      ...(reason?.trim() ? { rejection_reason: reason.trim() } : {}),
+      ...(reason?.trim() ? { metadata: { rejection_reason: reason.trim() } } : {}),
     })
     .eq("id", id);
 

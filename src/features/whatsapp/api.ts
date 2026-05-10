@@ -334,7 +334,7 @@ function mapConversation(row: WhatsAppConversationRow): WhatsAppConversation {
 }
 
 export async function getWhatsAppConversations() {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("whatsapp_conversations")
     .select(
       `
@@ -425,7 +425,7 @@ function mapMessage(row: WhatsAppMessageRow): WhatsAppMessage {
 export async function getWhatsAppMessages(conversationId: string) {
   if (!conversationId) return [];
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("whatsapp_messages")
     .select("*")
     .eq("conversation_id", conversationId)
@@ -630,6 +630,7 @@ function applyCreatedAtRange<T>(
   query: T,
   range: { start: string | null; end: string },
 ): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let ranged = query as any;
   if (range.start) {
     ranged = ranged.gte("created_at", range.start);
@@ -711,7 +712,7 @@ async function getAnalyticsConversations(
       `
     : "id, campaign_id, client_id, prospect_id, source, stage, status, unread_count, needs_human, service_window_open_until, created_at";
 
-  let query = (supabase as any).from("whatsapp_conversations").select(select);
+  let query = supabase.from("whatsapp_conversations").select(select);
   query = applyCreatedAtRange(query, range);
   query = query.order("created_at", { ascending: false });
 
@@ -725,7 +726,7 @@ async function getAnalyticsConversations(
 }
 
 async function getAllAnalyticsConversations() {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("whatsapp_conversations")
     .select("id, campaign_id, client_id, prospect_id, source, stage, status, unread_count, needs_human, service_window_open_until, created_at");
 
@@ -737,7 +738,7 @@ async function getAllAnalyticsConversations() {
 }
 
 async function getAnalyticsMessages(range: { start: string | null; end: string }) {
-  let query = (supabase as any)
+  let query = supabase
     .from("whatsapp_messages")
     .select("id, direction, status, created_at");
   query = applyCreatedAtRange(query, range);
@@ -758,7 +759,7 @@ async function getStatusRows(
     | "whatsapp_ai_suggestions",
   range?: { start: string | null; end: string },
 ) {
-  let query = (supabase as any).from(table).select("id, status, created_at");
+  let query = supabase.from(table).select("id, status, created_at");
   if (range) {
     query = applyCreatedAtRange(query, range);
   }
@@ -1016,7 +1017,7 @@ async function getSuggestionMetadata(id: string) {
 }
 
 export async function getWhatsAppPendingSuggestions() {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("whatsapp_ai_suggestions")
     .select(
       `
@@ -1473,6 +1474,7 @@ function mapOutreachQueueItem(row: OutreachQueueRow): OutreachQueueItem {
 }
 
 export async function getOutreachQueue(): Promise<OutreachQueueItem[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from("whatsapp_outreach_queue")
     .select("*")
@@ -1489,6 +1491,7 @@ export async function getOutreachQueue(): Promise<OutreachQueueItem[]> {
 export async function approveOutreachQueueItem(id: string) {
   const userId = await getCurrentUserId();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from("whatsapp_outreach_queue")
     .update({
@@ -1523,6 +1526,7 @@ export async function approveOutreachQueueItem(id: string) {
 }
 
 export async function rejectOutreachQueueItem(id: string, reason?: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from("whatsapp_outreach_queue")
     .update({

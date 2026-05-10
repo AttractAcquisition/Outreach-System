@@ -24,11 +24,11 @@ export function WhatsAppInbox({
     conversations.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <div className="grid h-full grid-cols-1 lg:grid-cols-[340px_1fr_340px] rounded-2xl overflow-hidden border border-border bg-card/30 shadow-card">
-      {/* Left */}
+    <div className="flex h-full rounded-2xl overflow-hidden border border-border bg-card/30 shadow-card">
+      {/* Left – conversation list */}
       <div
-        className={`border-r border-border bg-card/40 ${
-          mobileShowThread ? "hidden lg:block" : "block"
+        className={`w-[340px] flex-none flex flex-col border-r border-border bg-card/40 ${
+          mobileShowThread ? "hidden lg:flex" : "flex"
         }`}
       >
         <ConversationList
@@ -43,9 +43,13 @@ export function WhatsAppInbox({
         />
       </div>
 
-      {/* Middle */}
-      <div className={`${mobileShowThread ? "block" : "hidden lg:block"}`}>
-        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border lg:hidden">
+      {/* Middle – message thread */}
+      <div
+        className={`flex-1 min-w-0 flex flex-col ${
+          mobileShowThread ? "flex" : "hidden lg:flex"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border lg:hidden flex-none">
           <Button
             size="sm"
             variant="ghost"
@@ -69,23 +73,25 @@ export function WhatsAppInbox({
             </Sheet>
           )}
         </div>
-        <ConversationThread
-          conversation={selected}
-          onUpdate={updateConversation}
-          onRefreshConversations={() => void reload()}
-          onOpenProspect={() => setProspectOpen(true)}
-        />
+        <div className="flex-1 min-h-0 flex flex-col">
+          <ConversationThread
+            conversation={selected}
+            onUpdate={updateConversation}
+            onRefreshConversations={() => void reload()}
+            onOpenProspect={() => setProspectOpen(true)}
+          />
+        </div>
       </div>
 
-      {/* Right */}
-      <div className="hidden lg:block border-l border-border bg-card/40">
+      {/* Right – prospect panel */}
+      <div className="hidden lg:flex flex-col w-[340px] flex-none border-l border-border bg-card/40">
         {selected ? (
           <ProspectPanel
             conversation={selected}
             onUpdate={updateConversation}
           />
         ) : (
-          <div className="h-full flex items-center justify-center p-6 text-sm text-muted-foreground">
+          <div className="flex-1 flex items-center justify-center p-6 text-sm text-muted-foreground">
             Select a conversation to see prospect details.
           </div>
         )}

@@ -315,27 +315,23 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Supabase backend secrets are not configured" }, 500);
   }
 
+  // Auth is non-blocking — the app has no login flow.
+  // Try to resolve a user from the Authorization header; fall back to null.
+  let userId: string | null = null;
+  let userClient: ReturnType<typeof createClient> | null = null;
   const authorization = req.headers.get("Authorization") ?? "";
-  if (!authorization.toLowerCase().startsWith("bearer ")) {
-    return jsonResponse({ error: "Authentication required" }, 401);
+  if (authorization.toLowerCase().startsWith("bearer ")) {
+    userClient = createClient(supabaseUrl, serviceRoleKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    userId = user?.id ?? null;
   }
 
-  const userClient = createClient(supabaseUrl, serviceRoleKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false },
-  });
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   });
-
-  const {
-    data: { user },
-    error: userError,
-  } = await userClient.auth.getUser();
-
-  if (userError || !user) {
-    return jsonResponse({ error: "Authentication required" }, 401);
-  }
 
   let body: RequestBody;
   try {
@@ -381,7 +377,7 @@ Deno.serve(async (req) => {
 
     const conversationRow = conversation as ConversationRow;
 
-    if (conversationRow.client_id) {
+    if (conversationRow.client_id && userClient) {
       const { data: canAccess, error: accessError } = await userClient.rpc(
         "aa_can_access_client",
         { target_client_id: conversationRow.client_id },
@@ -467,7 +463,7 @@ Deno.serve(async (req) => {
         status: "pending_review",
         provider: useAnthropic ? "anthropic" : "openai",
         model,
-        created_by: user.id,
+        created_by: userId,
         metadata: {
           campaign_id: conversationRow.campaign_id,
           messages_used: messageRows.length,

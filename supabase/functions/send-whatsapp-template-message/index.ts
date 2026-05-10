@@ -115,7 +115,7 @@ function safeMetaMetadata(metaResponse: MetaMessageResponse) {
 
 async function logEvents(input: {
   supabase: ReturnType<typeof createClient>;
-  userId: string;
+  userId: string | null;
   status: "success" | "failed";
   conversationId: string;
   whatsappMessageId: string | null;
@@ -182,27 +182,22 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "WhatsApp API secrets are not configured" }, 500);
   }
 
+  // Auth is non-blocking — the app has no login flow.
+  // Try to resolve a user from the Authorization header; fall back to null.
+  let userId: string | null = null;
   const authorization = req.headers.get("Authorization") ?? "";
-  if (!authorization.toLowerCase().startsWith("bearer ")) {
-    return jsonResponse({ error: "Authentication required" }, 401);
+  if (authorization.toLowerCase().startsWith("bearer ")) {
+    const userClient = createClient(supabaseUrl, serviceRoleKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    userId = user?.id ?? null;
   }
 
-  const userClient = createClient(supabaseUrl, serviceRoleKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false },
-  });
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   });
-
-  const {
-    data: { user },
-    error: userError,
-  } = await userClient.auth.getUser();
-
-  if (userError || !user) {
-    return jsonResponse({ error: "Authentication required" }, 401);
-  }
 
   let body: SendTemplateRequest;
   try {
@@ -335,7 +330,7 @@ Deno.serve(async (req) => {
           body: renderedBody,
           status: "failed",
           sender_type: "human",
-          sent_by: user.id,
+          sent_by: userId,
           human_approved: true,
           template_name: templateRow.name,
           template_language: templateRow.language,
@@ -351,7 +346,7 @@ Deno.serve(async (req) => {
       }
       await logEvents({
         supabase: adminClient,
-        userId: user.id,
+        userId: userId,
         status: "failed",
         conversationId: conversationRow.id,
         whatsappMessageId: null,
@@ -365,7 +360,7 @@ Deno.serve(async (req) => {
     const errorMessage = "Could not reach WhatsApp Cloud API";
     await logEvents({
       supabase: adminClient,
-      userId: user.id,
+      userId: userId,
       status: "failed",
       conversationId: conversationRow.id,
       whatsappMessageId: null,
@@ -388,7 +383,7 @@ Deno.serve(async (req) => {
       body: renderedBody,
       status: "sent",
       sender_type: "human",
-      sent_by: user.id,
+      sent_by: userId,
       human_approved: true,
       whatsapp_message_id: whatsappMessageId,
       template_name: templateRow.name,
@@ -406,7 +401,7 @@ Deno.serve(async (req) => {
   if (insertError) {
     await logEvents({
       supabase: adminClient,
-      userId: user.id,
+      userId: userId,
       status: "failed",
       conversationId: conversationRow.id,
       whatsappMessageId,
@@ -427,7 +422,7 @@ Deno.serve(async (req) => {
 
   await logEvents({
     supabase: adminClient,
-    userId: user.id,
+    userId: userId,
     status: "success",
     conversationId: conversationRow.id,
     whatsappMessageId,

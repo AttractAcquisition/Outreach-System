@@ -113,27 +113,22 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "WhatsApp template sync secrets are not configured" }, 500);
   }
 
+  // Auth is non-blocking — the app has no login flow.
+  // Try to resolve a user from the Authorization header; fall back to null.
+  let userId: string | null = null;
   const authorization = req.headers.get("Authorization") ?? "";
-  if (!authorization.toLowerCase().startsWith("bearer ")) {
-    return jsonResponse({ error: "Authentication required" }, 401);
+  if (authorization.toLowerCase().startsWith("bearer ")) {
+    const userClient = createClient(supabaseUrl, serviceRoleKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    userId = user?.id ?? null;
   }
 
-  const userClient = createClient(supabaseUrl, serviceRoleKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false },
-  });
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   });
-
-  const {
-    data: { user },
-    error: userError,
-  } = await userClient.auth.getUser();
-
-  if (userError || !user) {
-    return jsonResponse({ error: "Authentication required" }, 401);
-  }
 
   const fields = [
     "id",
@@ -235,7 +230,7 @@ Deno.serve(async (req) => {
     } else {
       const { error } = await adminClient
         .from("whatsapp_templates")
-        .insert({ ...payload, created_by: user.id });
+        .insert({ ...payload, created_by: userId });
       if (error) throw new Error(error.message);
       inserted += 1;
     }

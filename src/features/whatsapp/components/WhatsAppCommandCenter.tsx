@@ -9,6 +9,7 @@ import {
   ShieldX,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { WhatsAppInbox } from "./WhatsAppInbox";
 import { OutreachQueue } from "./OutreachQueue";
 import { TemplateManager } from "./TemplateManager";
@@ -16,6 +17,10 @@ import { CampaignLeads } from "./CampaignLeads";
 import { SuppressionList } from "./SuppressionList";
 import { WhatsAppAnalytics } from "./WhatsAppAnalytics";
 import { WhatsAppSettings } from "./WhatsAppSettings";
+import {
+  useWhatsAppPendingSuggestions,
+  useWhatsAppRealtime,
+} from "../hooks";
 
 const TABS = [
   { value: "inbox", label: "Inbox", icon: Inbox },
@@ -30,6 +35,10 @@ const TABS = [
 export function WhatsAppCommandCenter() {
   const [tab, setTab] = useState<(typeof TABS)[number]["value"]>("inbox");
   const [initialConv, setInitialConv] = useState<string | undefined>();
+
+  useWhatsAppRealtime();
+  const { suggestions } = useWhatsAppPendingSuggestions();
+  const pendingCount = suggestions.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,6 +73,11 @@ export function WhatsAppCommandCenter() {
                 >
                   <Icon className="h-4 w-4" />
                   {t.label}
+                  {t.value === "outreach" && pendingCount > 0 && (
+                    <Badge className="ml-0.5 h-4 min-w-4 px-1 text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full">
+                      {pendingCount}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               );
             })}

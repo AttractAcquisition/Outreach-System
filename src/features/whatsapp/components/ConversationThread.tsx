@@ -92,7 +92,7 @@ export function ConversationThread({
             size="sm"
             variant="secondary"
             onClick={() => {
-              void updateCRMStage(c.prospect_id, "Interested");
+              void updateCRMStage(c.id, "Interested");
               onUpdate?.(c.id, { crm_stage: "Interested" });
             }}
           >
@@ -103,7 +103,7 @@ export function ConversationThread({
             size="sm"
             variant="secondary"
             onClick={() => {
-              void updateCRMStage(c.prospect_id, "Call Booked");
+              void updateCRMStage(c.id, "Call Booked");
               onUpdate?.(c.id, { crm_stage: "Call Booked" });
             }}
           >
@@ -183,7 +183,7 @@ export function ConversationThread({
         destructive
         onConfirm={() => {
           setConfirmDNCOpen(false);
-          void markDoNotContact(c.prospect_id);
+          void markDoNotContact(c.prospect_id, c.phone_number, "manual");
           onUpdate?.(c.id, {
             crm_stage: "Do Not Contact",
             suppressed: true,

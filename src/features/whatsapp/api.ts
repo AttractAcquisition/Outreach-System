@@ -4,6 +4,9 @@ import { normalizePhoneNumber } from "./phone";
 import type {
   ConversationSource,
   CrmStage,
+  OutreachQueueItem,
+  ProspectDetails,
+  QueueStatus,
   ServiceWindowStatus,
   SuppressionReason,
   WhatsAppAnalyticsRange,
@@ -1396,4 +1399,341 @@ export async function updateWhatsAppTemplate(
 
 export async function archiveWhatsAppTemplate(id: string) {
   return updateWhatsAppTemplate(id, { status: "archived" });
+}
+
+// ─── Outreach queue ───────────────────────────────────────────────
+
+type OutreachQueueRow = {
+  id: string;
+  prospect_id: string;
+  conversation_id: string | null;
+  business_name: string | null;
+  contact_name: string | null;
+  phone_number: string | null;
+  niche: string | null;
+  location: string | null;
+  template_name: string | null;
+  template_params: Json;
+  draft_preview: string | null;
+  drafted_message: string | null;
+  ai_observation: string | null;
+  risk_score: number | null;
+  compliance_status: string | null;
+  status: string;
+  created_at: string;
+  created_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  sent_at: string | null;
+  error_message: string | null;
+};
+
+function toQueueStatus(status: string): QueueStatus {
+  switch (status) {
+    case "draft":
+      return "Draft";
+    case "pending_review":
+    case "pending_approval":
+      return "Pending Approval";
+    case "approved":
+      return "Approved";
+    case "sent":
+      return "Sent";
+    case "failed":
+      return "Failed";
+    default:
+      return "Cancelled";
+  }
+}
+
+function mapOutreachQueueItem(row: OutreachQueueRow): OutreachQueueItem {
+  return {
+    id: row.id,
+    prospect_id: row.prospect_id,
+    business_name: row.business_name ?? "",
+    contact_name: row.contact_name ?? "",
+    phone_number: row.phone_number ?? "",
+    niche: row.niche ?? "",
+    location: row.location ?? "",
+    template_name: row.template_name ?? "",
+    template_params: asRecord(row.template_params) as Record<string, string>,
+    draft_preview: row.draft_preview ?? row.drafted_message ?? "",
+    ai_observation: row.ai_observation ?? "",
+    risk_score: row.risk_score ?? 0,
+    compliance_status:
+      (row.compliance_status as "ok" | "warning" | "blocked") ?? "ok",
+    status: toQueueStatus(row.status),
+    created_at: row.created_at,
+    created_by: row.created_by ?? "",
+    approved_by: row.approved_by ?? undefined,
+    approved_at: row.approved_at ?? undefined,
+    sent_at: row.sent_at ?? undefined,
+    error_message: row.error_message ?? undefined,
+  };
+}
+
+export async function getOutreachQueue(): Promise<OutreachQueueItem[]> {
+  const { data, error } = await (supabase as any)
+    .from("whatsapp_outreach_queue")
+    .select("*")
+    .eq("status", "pending_review")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as OutreachQueueRow[]).map(mapOutreachQueueItem);
+}
+
+export async function approveOutreachQueueItem(id: string) {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await (supabase as any)
+    .from("whatsapp_outreach_queue")
+    .update({
+      status: "approved",
+      approved_at: new Date().toISOString(),
+      approved_by: userId,
+    })
+    .eq("id", id)
+    .select("conversation_id, drafted_message, draft_preview")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const conversationId = (data as OutreachQueueRow).conversation_id;
+  const body =
+    (data as OutreachQueueRow).drafted_message ??
+    (data as OutreachQueueRow).draft_preview;
+
+  if (conversationId && body) {
+    const { error: fnError } = await supabase.functions.invoke(
+      "send-whatsapp-message",
+      { body: { conversation_id: conversationId, body } },
+    );
+
+    if (fnError) {
+      const msg = await getFunctionErrorMessage(fnError);
+      throw new Error(msg ?? fnError.message);
+    }
+  }
+}
+
+export async function rejectOutreachQueueItem(id: string, reason?: string) {
+  const { error } = await (supabase as any)
+    .from("whatsapp_outreach_queue")
+    .update({
+      status: "rejected",
+      ...(reason?.trim() ? { rejection_reason: reason.trim() } : {}),
+    })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+// ─── CRM stage ────────────────────────────────────────────────────
+
+function fromCrmStage(stage: CrmStage): string {
+  switch (stage) {
+    case "Replied":
+      return "needs_reply";
+    case "Qualified":
+      return "qualified";
+    case "Report Requested":
+    case "Report Sent":
+      return "quoted";
+    case "Call Booked":
+    case "Proof Sprint Offered":
+      return "booked";
+    case "Won":
+      return "won";
+    case "Lost":
+      return "lost";
+    case "Not Interested":
+    case "Do Not Contact":
+      return "bad_fit";
+    default:
+      return "new";
+  }
+}
+
+function crmStageToProspectStatus(stage: CrmStage): string {
+  switch (stage) {
+    case "Won":
+      return "won";
+    case "Lost":
+      return "lost";
+    case "Not Interested":
+      return "not_interested";
+    case "Do Not Contact":
+      return "do_not_contact";
+    case "Qualified":
+      return "qualified";
+    case "Call Booked":
+    case "Proof Sprint Offered":
+      return "booked";
+    default:
+      return "active";
+  }
+}
+
+export async function updateConversationStage(
+  conversationId: string,
+  stage: CrmStage,
+) {
+  const dbStage = fromCrmStage(stage);
+
+  const { data: conv, error: convError } = await supabase
+    .from("whatsapp_conversations")
+    .update({ stage: dbStage })
+    .eq("id", conversationId)
+    .select("prospect_id")
+    .single();
+
+  if (convError) {
+    throw new Error(convError.message);
+  }
+
+  if (conv.prospect_id) {
+    const { error: prospectError } = await supabase
+      .from("prospects")
+      .update({ status: crmStageToProspectStatus(stage) })
+      .eq("id", conv.prospect_id);
+
+    if (prospectError) {
+      throw new Error(prospectError.message);
+    }
+  }
+}
+
+// ─── Do Not Contact ───────────────────────────────────────────────
+
+export async function markProspectDoNotContact(
+  prospectId: string,
+  phone: string,
+  reason = "manual",
+) {
+  const normalizedPhone = normalizePhoneNumber(phone);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error: suppressError } = await supabase
+    .from("whatsapp_suppression_list")
+    .insert({
+      phone_number: phone.trim(),
+      normalized_phone_number: normalizedPhone || phone.trim(),
+      reason: reason as SuppressionReason,
+      source: "ui",
+      status: "active",
+      prospect_id: prospectId,
+      added_by: user?.id ?? null,
+      metadata: {} as Json,
+    });
+
+  if (suppressError) {
+    throw new Error(suppressError.message);
+  }
+
+  const { error: prospectError } = await supabase
+    .from("prospects")
+    .update({ status: "do_not_contact" })
+    .eq("id", prospectId);
+
+  if (prospectError) {
+    throw new Error(prospectError.message);
+  }
+}
+
+// ─── Internal notes ───────────────────────────────────────────────
+
+export async function saveConversationNote(
+  conversationId: string,
+  note: string,
+) {
+  const userId = await getCurrentUserId();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("whatsapp_conversations")
+    .select("metadata")
+    .eq("id", conversationId)
+    .single();
+
+  if (fetchError) {
+    throw new Error(fetchError.message);
+  }
+
+  const metadata = asRecord(existing.metadata as Json);
+  const existingNotes = Array.isArray(metadata.internal_notes)
+    ? (metadata.internal_notes as unknown[])
+    : [];
+
+  const newNote = {
+    text: note.trim(),
+    created_at: new Date().toISOString(),
+    created_by: userId,
+  };
+
+  const { error: updateError } = await supabase
+    .from("whatsapp_conversations")
+    .update({
+      metadata: {
+        ...metadata,
+        internal_notes: [...existingNotes, newNote],
+      } as Json,
+    })
+    .eq("id", conversationId);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+}
+
+// ─── Prospect ─────────────────────────────────────────────────────
+
+export async function getProspect(prospectId: string): Promise<ProspectDetails> {
+  const { data, error } = await supabase
+    .from("prospects")
+    .select("*")
+    .eq("id", prospectId)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    id: data.id,
+    business_name: data.business_name,
+    contact_name: data.owner_name ?? "",
+    phone_number: data.whatsapp ?? data.phone ?? "",
+    location: firstString(data.suburb, data.city),
+    niche: data.vertical ?? "",
+    source: "Unknown" as ConversationSource,
+    assigned_owner: data.assigned_to ?? "",
+    first_contact_at: data.created_at,
+    last_inbound_at: null,
+    qualification: {
+      google_listing: "unknown",
+      instagram_active: Boolean(data.instagram_handle),
+      meta_ads_running: data.meta_ads_running,
+      website_quality: "average",
+      reviews_count: data.google_review_count ?? 0,
+      reviews_rating: data.google_rating ?? 0,
+      main_gap: "",
+      suggested_angle: "",
+    },
+    compliance: {
+      opt_out: false,
+      suppressed: false,
+      consent_note: "",
+    },
+    internal_notes: "",
+  };
 }

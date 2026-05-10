@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   addSuppressionEntry,
+  approveOutreachQueueItem,
   approveWhatsAppSuggestion,
   archiveWhatsAppTemplate,
   createWhatsAppTemplate,
   generateWhatsAppReplySuggestion,
+  getOutreachQueue,
+  getProspect,
   getWhatsAppAnalytics,
   getWhatsAppCampaignLeads,
   getWhatsAppIntegrationHealth,
@@ -16,12 +20,16 @@ import {
   getWhatsAppConversations,
   getWhatsAppMessages,
   isPhoneSuppressed,
+  markProspectDoNotContact,
   markWhatsAppSuggestionUsed,
+  rejectOutreachQueueItem,
   removeSuppressionEntry,
   rejectWhatsAppSuggestion,
+  saveConversationNote,
   sendWhatsAppMessage,
   sendWhatsAppTemplateMessage,
   syncWhatsAppTemplates,
+  updateConversationStage,
   updateWhatsAppTemplate,
   type AddSuppressionEntryInput,
   type WhatsAppTemplateInput,
@@ -55,6 +63,9 @@ const campaignLeadsQueryKey = (range: WhatsAppAnalyticsRange) =>
 const integrationHealthQueryKey = ["whatsapp", "integration-health"] as const;
 const conversationMessagesQueryKey = (conversationId: string | null) =>
   ["whatsapp", "messages", conversationId] as const;
+const outreachQueueQueryKey = ["whatsapp", "outreach-queue"] as const;
+const prospectQueryKey = (prospectId: string) =>
+  ["whatsapp", "prospect", prospectId] as const;
 
 // ─── Conversations ───────────────────────────────────────────────
 export function useWhatsAppConversations() {
@@ -305,16 +316,18 @@ export function useMarkWhatsAppSuggestionUsed() {
 
 // ─── Outreach queue ──────────────────────────────────────────────
 export function useOutreachQueue() {
-  // TODO: Connect this hook to the real outreach queue Supabase source once available.
-  const [queue, setQueue] = useState<OutreachQueueItem[]>([]);
+  const query = useQuery({
+    queryKey: outreachQueueQueryKey,
+    queryFn: getOutreachQueue,
+    refetchInterval: 30_000,
+  });
 
-  const update = useCallback(
-    (id: string, patch: Partial<OutreachQueueItem>) =>
-      setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q))),
-    [],
-  );
-
-  return { queue, loading: false, error: null as string | null, update };
+  return {
+    queue: (query.data ?? []) as OutreachQueueItem[],
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    reload: query.refetch,
+  };
 }
 
 // ─── Templates ───────────────────────────────────────────────────
@@ -533,10 +546,66 @@ export function useWhatsAppIntegrationHealth() {
 }
 
 // ─── Prospect details ────────────────────────────────────────────
-export function useProspect(conv: WhatsAppConversation | null) {
-  // TODO: Connect this hook to the real prospect details Supabase source once available.
-  void conv;
-  return null;
+export function useProspect(prospectId: string | null) {
+  return useQuery({
+    queryKey: prospectQueryKey(prospectId ?? ""),
+    queryFn: () => getProspect(prospectId!),
+    enabled: Boolean(prospectId),
+  });
+}
+
+// ─── Realtime subscriptions ──────────────────────────────────────
+export function useWhatsAppRealtime() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("whatsapp-command-center")
+      // New conversation created — likely an inbound prospect message
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "whatsapp_conversations" },
+        (payload) => {
+          const row = payload.new as {
+            contact_name?: string | null;
+            last_message_preview?: string | null;
+            source?: string | null;
+          };
+          const name = row.contact_name?.trim() || "New contact";
+          const preview = row.last_message_preview?.trim() || undefined;
+
+          toast(`New message from ${name}`, {
+            description: preview,
+            duration: 6000,
+          });
+
+          void queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+        },
+      )
+      // New AI suggestion queued — bump the Outreach Queue badge
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "whatsapp_ai_suggestions" },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: pendingSuggestionsQueryKey,
+          });
+        },
+      )
+      // Outreach queue row updated — SOP 01 batch processor wrote new items
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "whatsapp_outreach_queue" },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: outreachQueueQueryKey });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 }
 
 // ─── Service-window helper ───────────────────────────────────────
@@ -611,30 +680,70 @@ export async function generateAIReply(conversationId: string) {
   }
 }
 
-export async function approveQueueItem(_id: string) {
-  toast.error("Outreach approvals are not connected to a backend yet");
-  return { ok: false };
+export async function approveQueueItem(id: string) {
+  try {
+    await approveOutreachQueueItem(id);
+    return { ok: true };
+  } catch (err) {
+    toast.error(
+      err instanceof Error ? err.message : "Could not approve queue item",
+    );
+    return { ok: false };
+  }
 }
 
-export async function rejectQueueItem(_id: string) {
-  toast.error("Outreach rejection is not connected to a backend yet");
-  return { ok: false };
+export async function rejectQueueItem(id: string, reason?: string) {
+  try {
+    await rejectOutreachQueueItem(id, reason);
+    return { ok: true };
+  } catch (err) {
+    toast.error(
+      err instanceof Error ? err.message : "Could not reject queue item",
+    );
+    return { ok: false };
+  }
 }
 
-export async function markDoNotContact(_prospectId: string) {
-  toast.error("Do Not Contact updates are not connected to a backend yet");
-  return { ok: false };
+export async function markDoNotContact(
+  prospectId: string,
+  phone: string,
+  reason?: string,
+) {
+  try {
+    await markProspectDoNotContact(prospectId, phone, reason);
+    return { ok: true };
+  } catch (err) {
+    toast.error(
+      err instanceof Error
+        ? err.message
+        : "Could not mark contact as Do Not Contact",
+    );
+    return { ok: false };
+  }
 }
 
-export async function updateCRMStage(_prospectId: string, stage: CrmStage) {
-  void stage;
-  toast.error("CRM stage updates are not connected to a backend yet");
-  return { ok: false };
+export async function updateCRMStage(conversationId: string, stage: CrmStage) {
+  try {
+    await updateConversationStage(conversationId, stage);
+    return { ok: true };
+  } catch (err) {
+    toast.error(
+      err instanceof Error ? err.message : "Could not update CRM stage",
+    );
+    return { ok: false };
+  }
 }
 
-export async function saveInternalNote(_prospectId: string, _note: string) {
-  toast.error("Internal notes are not connected to a backend yet");
-  return { ok: false };
+export async function saveInternalNote(conversationId: string, note: string) {
+  try {
+    await saveConversationNote(conversationId, note);
+    return { ok: true };
+  } catch (err) {
+    toast.error(
+      err instanceof Error ? err.message : "Could not save internal note",
+    );
+    return { ok: false };
+  }
 }
 
 // Re-exports for type-only imports

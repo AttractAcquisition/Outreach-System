@@ -118,7 +118,7 @@ export function ProspectPanel({ conversation, onUpdate }: Props) {
         <Select
           value={c.crm_stage}
           onValueChange={(v) => {
-            void updateCRMStage(c.prospect_id, v as CrmStage);
+            void updateCRMStage(c.id, v as CrmStage);
             onUpdate?.(c.id, { crm_stage: v as CrmStage });
           }}
         >
@@ -218,7 +218,7 @@ export function ProspectPanel({ conversation, onUpdate }: Props) {
           size="sm"
           className="bg-gradient-brand text-primary-foreground hover:opacity-90"
           onClick={() => {
-            void saveInternalNote(c.prospect_id, note);
+            void saveInternalNote(c.id, note);
             setNote("");
           }}
           disabled={!note.trim()}

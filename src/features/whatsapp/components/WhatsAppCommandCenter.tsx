@@ -5,10 +5,10 @@ import {
   Inbox,
   ListChecks,
   Megaphone,
+  MessageSquare,
   Settings,
   ShieldX,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { WhatsAppInbox } from "./WhatsAppInbox";
 import { OutreachQueue } from "./OutreachQueue";
@@ -22,101 +22,183 @@ import {
   useWhatsAppRealtime,
 } from "../hooks";
 
-const TABS = [
-  { value: "inbox", label: "Inbox", icon: Inbox },
-  { value: "outreach", label: "Outreach Queue", icon: ListChecks },
-  { value: "templates", label: "Templates", icon: FileText },
-  { value: "campaigns", label: "Campaign Leads", icon: Megaphone },
-  { value: "suppression", label: "Suppression", icon: ShieldX },
-  { value: "analytics", label: "Analytics", icon: BarChart3 },
-  { value: "settings", label: "Settings", icon: Settings },
+const NAV = [
+  {
+    id: "inbox",
+    label: "Inbox",
+    icon: Inbox,
+    description: "Conversations & inbound replies",
+  },
+  {
+    id: "outreach",
+    label: "Outreach Queue",
+    icon: ListChecks,
+    description: "AI-drafted messages pending approval",
+  },
+  {
+    id: "templates",
+    label: "Templates",
+    icon: FileText,
+    description: "WhatsApp message templates",
+  },
+  {
+    id: "campaigns",
+    label: "Campaign Leads",
+    icon: Megaphone,
+    description: "Leads attributed to campaigns",
+  },
+  {
+    id: "suppression",
+    label: "Suppression",
+    icon: ShieldX,
+    description: "Do-not-contact list",
+  },
+  {
+    id: "analytics",
+    label: "Analytics",
+    icon: BarChart3,
+    description: "Performance metrics & trends",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    description: "Integration health & configuration",
+  },
 ] as const;
 
+type PageId = (typeof NAV)[number]["id"];
+
 export function WhatsAppCommandCenter() {
-  const [tab, setTab] = useState<(typeof TABS)[number]["value"]>("inbox");
+  const [page, setPage] = useState<PageId>("inbox");
   const [initialConv, setInitialConv] = useState<string | undefined>();
 
   useWhatsAppRealtime();
   const { suggestions } = useWhatsAppPendingSuggestions();
   const pendingCount = suggestions.length;
 
+  const currentNav = NAV.find((n) => n.id === page)!;
+
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background">
-      <header className="flex-none border-b border-border bg-card/40">
-        <div className="px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
-              <span className="text-primary-foreground font-bold text-sm">AA</span>
+    <div className="h-screen flex overflow-hidden bg-background">
+      {/* ── Sidebar ─────────────────────────────────────────────── */}
+      <aside className="w-56 flex-none flex flex-col h-full border-r border-border bg-card/40">
+        {/* Brand */}
+        <div className="flex-none px-4 py-5 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 flex-none rounded-lg bg-gradient-brand grid place-items-center shadow-glow">
+              <MessageSquare className="h-4 w-4 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
-                WhatsApp Command Center
-              </h1>
-              <p className="text-sm text-muted-foreground max-w-2xl">
-                Manage WhatsApp API outreach, inbound replies, AI-assisted conversations, approvals, templates, and compliance from one place.
+            <div className="min-w-0">
+              <p className="font-bold text-sm leading-none truncate">
+                Attract Acquisition
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                WhatsApp CRM
               </p>
             </div>
           </div>
         </div>
-      </header>
 
-      <main className="flex-1 min-h-0 flex flex-col overflow-hidden px-6 pb-6">
-        <Tabs
-          value={tab}
-          onValueChange={(v) => setTab(v as typeof tab)}
-          className="flex-1 min-h-0 flex flex-col overflow-hidden"
-        >
-          <TabsList className="flex-none bg-card/60 border border-border rounded-2xl p-1 h-auto flex flex-wrap mt-6">
-            {TABS.map((t) => {
-              const Icon = t.icon;
-              return (
-                <TabsTrigger
-                  key={t.value}
-                  value={t.value}
-                  className="rounded-xl data-[state=active]:bg-gradient-brand data-[state=active]:text-primary-foreground gap-2"
-                >
-                  <Icon className="h-4 w-4" />
-                  {t.label}
-                  {t.value === "outreach" && pendingCount > 0 && (
-                    <Badge className="ml-0.5 h-4 min-w-4 px-1 text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full">
-                      {pendingCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          {NAV.map((item) => {
+            const Icon = item.icon;
+            const active = page === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setPage(item.id)}
+                className={[
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl",
+                  "text-sm font-medium text-left transition-all duration-100",
+                  active
+                    ? "bg-gradient-brand text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                ].join(" ")}
+              >
+                <Icon className="h-4 w-4 flex-none" />
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.id === "outreach" && pendingCount > 0 && (
+                  <Badge className="h-5 min-w-5 px-1.5 text-[10px] font-bold bg-amber-500 hover:bg-amber-500 text-white border-0 rounded-full flex-none">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
-          <div className="flex-1 min-h-0 overflow-hidden mt-5">
-            <TabsContent value="inbox" className="m-0 h-full">
+        {/* Footer */}
+        <div className="flex-none px-4 py-3 border-t border-border">
+          <p className="text-[10px] text-muted-foreground/60">
+            Operator Panel · v1
+          </p>
+        </div>
+      </aside>
+
+      {/* ── Main ────────────────────────────────────────────────── */}
+      <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
+        {/* Page header */}
+        <header className="flex-none border-b border-border bg-card/20 px-6 py-4">
+          <h1 className="text-base font-semibold leading-none">
+            {currentNav.label}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            {currentNav.description}
+          </p>
+        </header>
+
+        {/* Page content — inbox fills height, others scroll */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {page === "inbox" && (
+            <div className="h-full p-4">
               <WhatsAppInbox initialConversationId={initialConv} />
-            </TabsContent>
-            <TabsContent value="outreach" className="m-0 h-full overflow-y-auto">
+            </div>
+          )}
+
+          {page === "outreach" && (
+            <div className="h-full overflow-y-auto p-6">
               <OutreachQueue />
-            </TabsContent>
-            <TabsContent value="templates" className="m-0 h-full overflow-y-auto">
+            </div>
+          )}
+
+          {page === "templates" && (
+            <div className="h-full overflow-y-auto p-6">
               <TemplateManager />
-            </TabsContent>
-            <TabsContent value="campaigns" className="m-0 h-full overflow-y-auto">
+            </div>
+          )}
+
+          {page === "campaigns" && (
+            <div className="h-full overflow-y-auto p-6">
               <CampaignLeads
                 onOpenInInbox={(id) => {
                   setInitialConv(id);
-                  setTab("inbox");
+                  setPage("inbox");
                 }}
               />
-            </TabsContent>
-            <TabsContent value="suppression" className="m-0 h-full overflow-y-auto">
+            </div>
+          )}
+
+          {page === "suppression" && (
+            <div className="h-full overflow-y-auto p-6">
               <SuppressionList />
-            </TabsContent>
-            <TabsContent value="analytics" className="m-0 h-full overflow-y-auto">
+            </div>
+          )}
+
+          {page === "analytics" && (
+            <div className="h-full overflow-y-auto p-6">
               <WhatsAppAnalytics />
-            </TabsContent>
-            <TabsContent value="settings" className="m-0 h-full overflow-y-auto">
+            </div>
+          )}
+
+          {page === "settings" && (
+            <div className="h-full overflow-y-auto p-6">
               <WhatsAppSettings />
-            </TabsContent>
-          </div>
-        </Tabs>
-      </main>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

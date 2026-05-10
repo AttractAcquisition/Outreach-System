@@ -4,12 +4,15 @@ import {
   FileText,
   Inbox,
   ListChecks,
+  LogOut,
   Megaphone,
   MessageSquare,
   Settings,
   ShieldX,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { WhatsAppInbox } from "./WhatsAppInbox";
 import { OutreachQueue } from "./OutreachQueue";
 import { TemplateManager } from "./TemplateManager";
@@ -74,6 +77,7 @@ export function WhatsAppCommandCenter() {
   const [initialConv, setInitialConv] = useState<string | undefined>();
 
   useWhatsAppRealtime();
+  const { signOut } = useAuth();
   const { suggestions } = useWhatsAppPendingSuggestions();
   const pendingCount = suggestions.length;
 
@@ -130,10 +134,19 @@ export function WhatsAppCommandCenter() {
         </nav>
 
         {/* Footer */}
-        <div className="flex-none px-4 py-3 border-t border-border">
+        <div className="flex-none px-3 py-3 border-t border-border flex items-center justify-between gap-2">
           <p className="text-[10px] text-muted-foreground/60">
             Operator Panel · v1
           </p>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={() => void signOut()}
+            title="Sign out"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </aside>
 

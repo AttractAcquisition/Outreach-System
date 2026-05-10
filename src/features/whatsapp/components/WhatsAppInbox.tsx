@@ -24,7 +24,7 @@ export function WhatsAppInbox({
     conversations.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <div className="grid h-[calc(100vh-220px)] min-h-[560px] grid-cols-1 lg:grid-cols-[340px_1fr_340px] rounded-2xl overflow-hidden border border-border bg-card/30 shadow-card">
+    <div className="grid h-full grid-cols-1 lg:grid-cols-[340px_1fr_340px] rounded-2xl overflow-hidden border border-border bg-card/30 shadow-card">
       {/* Left */}
       <div
         className={`border-r border-border bg-card/40 ${

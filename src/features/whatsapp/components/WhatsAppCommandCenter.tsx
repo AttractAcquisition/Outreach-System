@@ -41,9 +41,9 @@ export function WhatsAppCommandCenter() {
   const pendingCount = suggestions.length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/40">
-        <div className="container mx-auto px-6 py-6">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
+      <header className="flex-none border-b border-border bg-card/40">
+        <div className="px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
               <span className="text-primary-foreground font-bold text-sm">AA</span>
@@ -60,9 +60,13 @@ export function WhatsAppCommandCenter() {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-6">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <TabsList className="bg-card/60 border border-border rounded-2xl p-1 h-auto flex flex-wrap">
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden px-6 pb-6">
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as typeof tab)}
+          className="flex-1 min-h-0 flex flex-col overflow-hidden"
+        >
+          <TabsList className="flex-none bg-card/60 border border-border rounded-2xl p-1 h-auto flex flex-wrap mt-6">
             {TABS.map((t) => {
               const Icon = t.icon;
               return (
@@ -83,17 +87,17 @@ export function WhatsAppCommandCenter() {
             })}
           </TabsList>
 
-          <div className="mt-5">
-            <TabsContent value="inbox" className="m-0">
+          <div className="flex-1 min-h-0 overflow-hidden mt-5">
+            <TabsContent value="inbox" className="m-0 h-full">
               <WhatsAppInbox initialConversationId={initialConv} />
             </TabsContent>
-            <TabsContent value="outreach" className="m-0">
+            <TabsContent value="outreach" className="m-0 h-full overflow-y-auto">
               <OutreachQueue />
             </TabsContent>
-            <TabsContent value="templates" className="m-0">
+            <TabsContent value="templates" className="m-0 h-full overflow-y-auto">
               <TemplateManager />
             </TabsContent>
-            <TabsContent value="campaigns" className="m-0">
+            <TabsContent value="campaigns" className="m-0 h-full overflow-y-auto">
               <CampaignLeads
                 onOpenInInbox={(id) => {
                   setInitialConv(id);
@@ -101,13 +105,13 @@ export function WhatsAppCommandCenter() {
                 }}
               />
             </TabsContent>
-            <TabsContent value="suppression" className="m-0">
+            <TabsContent value="suppression" className="m-0 h-full overflow-y-auto">
               <SuppressionList />
             </TabsContent>
-            <TabsContent value="analytics" className="m-0">
+            <TabsContent value="analytics" className="m-0 h-full overflow-y-auto">
               <WhatsAppAnalytics />
             </TabsContent>
-            <TabsContent value="settings" className="m-0">
+            <TabsContent value="settings" className="m-0 h-full overflow-y-auto">
               <WhatsAppSettings />
             </TabsContent>
           </div>

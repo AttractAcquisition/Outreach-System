@@ -99,28 +99,22 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "WhatsApp API secrets are not configured" }, 500);
   }
 
+  // Auth is non-blocking — the app has no login flow.
+  // Try to resolve a user from the Authorization header; fall back to null.
+  let userId: string | null = null;
   const authorization = req.headers.get("Authorization") ?? "";
-
-  if (!authorization.toLowerCase().startsWith("bearer ")) {
-    return jsonResponse({ error: "Authentication required" }, 401);
+  if (authorization.toLowerCase().startsWith("bearer ")) {
+    const userClient = createClient(supabaseUrl, serviceRoleKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    userId = user?.id ?? null;
   }
 
-  const userClient = createClient(supabaseUrl, serviceRoleKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false },
-  });
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   });
-
-  const {
-    data: { user },
-    error: userError,
-  } = await userClient.auth.getUser();
-
-  if (userError || !user) {
-    return jsonResponse({ error: "Authentication required" }, 401);
-  }
 
   let body: SendRequest;
 
@@ -207,7 +201,7 @@ Deno.serve(async (req) => {
       body: messageBody,
       status: "failed",
       sender_type: "human",
-      sent_by: user.id,
+      sent_by: userId,
       ai_generated: false,
       human_approved: true,
       error_message: errorMessage,
@@ -237,7 +231,7 @@ Deno.serve(async (req) => {
         target_system: "meta_whatsapp_cloud_api",
         status,
         error_message: errorMessage ?? null,
-        triggered_by_profile_id: user.id,
+        triggered_by_profile_id: userId,
         payload: eventPayload,
         processed_at: new Date().toISOString(),
       }),
@@ -248,7 +242,7 @@ Deno.serve(async (req) => {
             : "whatsapp_message_send_failed",
         entity_type: "whatsapp_conversation",
         entity_id: conversationRow.id,
-        actor_profile_id: user.id,
+        actor_profile_id: userId,
         metadata: {
           ...eventPayload,
           status,
@@ -304,7 +298,7 @@ Deno.serve(async (req) => {
       body: messageBody,
       status: "sent",
       sender_type: "human",
-      sent_by: user.id,
+      sent_by: userId,
       ai_generated: false,
       human_approved: true,
       whatsapp_message_id: whatsappMessageId,

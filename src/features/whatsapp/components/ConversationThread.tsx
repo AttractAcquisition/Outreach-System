@@ -68,7 +68,7 @@ export function ConversationThread({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-border p-4 flex items-center justify-between gap-3">
+      <div className="border-b border-border p-3 lg:p-4 flex items-center justify-between gap-2 lg:gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="truncate font-semibold text-base">{c.business_name}</h2>
@@ -91,6 +91,7 @@ export function ConversationThread({
           <Button
             size="sm"
             variant="secondary"
+            className="min-h-[44px] min-w-[44px]"
             onClick={() => {
               void updateCRMStage(c.id, "Interested");
               onUpdate?.(c.id, { crm_stage: "Interested" });
@@ -102,6 +103,7 @@ export function ConversationThread({
           <Button
             size="sm"
             variant="secondary"
+            className="min-h-[44px] min-w-[44px]"
             onClick={() => {
               void updateCRMStage(c.id, "Call Booked");
               onUpdate?.(c.id, { crm_stage: "Call Booked" });
@@ -112,7 +114,7 @@ export function ConversationThread({
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost">
+              <Button size="icon" variant="ghost" className="min-h-[44px] min-w-[44px]">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

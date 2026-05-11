@@ -28,7 +28,7 @@ export function ConversationCard({ conversation, active, onSelect }: Props) {
       type="button"
       onClick={onSelect}
       className={cn(
-        "w-full text-left rounded-2xl border p-3 transition-all",
+        "w-full text-left rounded-2xl border p-3 transition-all min-h-[56px]",
         "hover:bg-card/80",
         active
           ? "border-accent/60 bg-card shadow-glow"

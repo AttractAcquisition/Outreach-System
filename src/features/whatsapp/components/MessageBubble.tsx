@@ -50,7 +50,7 @@ export function MessageBubble({ message }: { message: WhatsAppMessage }) {
     <div className={cn("flex w-full mb-2", isOut ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[78%] rounded-2xl px-3.5 py-2.5 shadow-card",
+          "max-w-[85%] lg:max-w-[78%] rounded-2xl px-3.5 py-2.5 shadow-card",
           isOut
             ? "bg-gradient-brand text-primary-foreground rounded-br-md"
             : "bg-card border border-border text-card-foreground rounded-bl-md",

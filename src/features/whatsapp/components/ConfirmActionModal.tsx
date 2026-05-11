@@ -32,7 +32,7 @@ export function ConfirmActionModal({
 }: Props) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="rounded-2xl">
+      <AlertDialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description && (

@@ -63,13 +63,13 @@ export function CampaignLeads({ onOpenInInbox }: Props) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search campaign leads..."
-              className="w-64 rounded-xl border-border bg-secondary/60 pl-9"
+              className="w-full sm:w-64 min-h-[44px] rounded-xl border-border bg-secondary/60 pl-9"
             />
           </div>
           <Select

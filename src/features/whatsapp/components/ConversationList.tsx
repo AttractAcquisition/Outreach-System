@@ -120,17 +120,17 @@ export function ConversationList({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, business, phone…"
-            className="pl-9 bg-secondary/60 border-border rounded-xl"
+            className="pl-9 bg-secondary/60 border-border rounded-xl min-h-[44px]"
           />
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           {FILTER_CHIPS.map((chip) => (
             <button
               key={chip}
               onClick={() => setFilter(chip)}
               className={cn(
-                "px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors",
+                "flex-none px-2.5 py-1.5 min-h-[36px] rounded-full text-[11px] font-medium border transition-colors whitespace-nowrap",
                 filter === chip
                   ? "bg-gradient-brand text-primary-foreground border-transparent"
                   : "bg-secondary/60 text-muted-foreground border-border hover:text-foreground",

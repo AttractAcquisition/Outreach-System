@@ -131,13 +131,13 @@ export function SuppressionList() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search number, reason, source…"
-            className="pl-9 w-72 bg-secondary/60 border-border rounded-xl"
+            className="pl-9 w-full sm:w-72 min-h-[44px] bg-secondary/60 border-border rounded-xl"
           />
         </div>
         <div className="flex gap-2">
@@ -166,7 +166,7 @@ export function SuppressionList() {
           }
         />
       ) : (
-        <div className="rounded-2xl border border-border bg-card/60 overflow-hidden">
+        <div className="rounded-2xl border border-border bg-card/60 overflow-hidden overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -226,7 +226,7 @@ export function SuppressionList() {
           if (!open) resetForm();
         }}
       >
-        <DialogContent className="rounded-2xl">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl">
           <DialogHeader>
             <DialogTitle>Add to suppression list</DialogTitle>
           </DialogHeader>

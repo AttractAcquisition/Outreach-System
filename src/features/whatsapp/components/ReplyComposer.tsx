@@ -125,7 +125,7 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
 
   if (isBlocked) {
     return (
-      <div className="border-t border-border bg-destructive/10 p-4 flex items-center gap-3 text-sm">
+      <div className="border-t border-border bg-destructive/10 p-3 lg:p-4 pb-safe flex items-center gap-3 text-sm">
         <ShieldAlert className="h-5 w-5 text-destructive shrink-0" />
         <p className="text-destructive">
           This contact is suppressed or marked Do Not Contact. Sending is blocked.
@@ -135,7 +135,7 @@ export function ReplyComposer({ conversation, onMessageSent }: Props) {
   }
 
   return (
-    <div className="border-t border-border bg-card/40 p-4 space-y-3">
+    <div className="border-t border-border bg-card/40 p-3 lg:p-4 pb-safe space-y-3">
       {(suggestion || generateSuggestion.isPending) && status !== "closed" && (
         <AISuggestionPanel
           suggestion={suggestion}

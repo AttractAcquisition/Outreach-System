@@ -170,7 +170,7 @@ export function OutreachQueue() {
       )}
 
       <Dialog open={!!rejecting} onOpenChange={(open) => !open && setRejecting(null)}>
-        <DialogContent className="max-w-md rounded-lg">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md rounded-xl">
           <DialogHeader>
             <DialogTitle>Reject AI suggestion</DialogTitle>
           </DialogHeader>
@@ -279,10 +279,10 @@ function SuggestionRow({
         />
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-col sm:flex-row flex-wrap gap-2">
         <Button
           size="sm"
-          className="bg-gradient-brand text-primary-foreground hover:opacity-90"
+          className="bg-gradient-brand text-primary-foreground hover:opacity-90 sm:w-auto w-full min-h-[44px]"
           onClick={onApprove}
           disabled={approving || rejecting}
         >
@@ -294,6 +294,7 @@ function SuggestionRow({
           variant="outline"
           onClick={onCopy}
           disabled={approving || rejecting}
+          className="sm:w-auto w-full min-h-[44px]"
         >
           <Clipboard className="h-4 w-4" />
           Copy/use in composer
@@ -303,6 +304,7 @@ function SuggestionRow({
           variant="ghost"
           onClick={onReject}
           disabled={approving || rejecting}
+          className="sm:w-auto w-full min-h-[44px]"
         >
           <X className="h-4 w-4" />
           Reject

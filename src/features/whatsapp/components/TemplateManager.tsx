@@ -497,7 +497,7 @@ export function TemplateManager() {
       )}
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-3xl rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-3xl rounded-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit template" : "Create template"}</DialogTitle>
             <DialogDescription>

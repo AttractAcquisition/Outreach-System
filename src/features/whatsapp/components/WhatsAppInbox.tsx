@@ -24,10 +24,10 @@ export function WhatsAppInbox({
     conversations.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <div className="flex h-full rounded-2xl overflow-hidden border border-border bg-card/30 shadow-card">
+    <div className="flex h-full rounded-none lg:rounded-2xl overflow-hidden border-0 lg:border lg:border-border bg-card/30 lg:shadow-card">
       {/* Left – conversation list */}
       <div
-        className={`w-[340px] flex-none flex flex-col border-r border-border bg-card/40 ${
+        className={`w-full lg:w-[340px] flex-none flex flex-col border-r border-border bg-card/40 ${
           mobileShowThread ? "hidden lg:flex" : "flex"
         }`}
       >
@@ -64,7 +64,7 @@ export function WhatsAppInbox({
                   <UserCircle2 className="h-4 w-4" /> Prospect
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[360px] p-0">
+              <SheetContent side="right" className="w-full sm:w-[360px] p-0">
                 <ProspectPanel
                   conversation={selected}
                   onUpdate={updateConversation}

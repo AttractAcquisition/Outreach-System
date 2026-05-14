@@ -64,7 +64,7 @@ export function MessageBubble({ message }: { message: WhatsAppMessage }) {
                 ? "bg-warning/20 text-warning"
                 : isOut
                   ? "bg-white/15 text-primary-foreground"
-                  : "bg-lavender/20 text-lavender",
+                  : "bg-sky/20 text-sky",
             )}
           >
             {isAIDraft ? (

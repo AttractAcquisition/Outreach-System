@@ -6,7 +6,7 @@ const map: Record<
   ConversationSource,
   { icon: React.ComponentType<{ className?: string }>; cls: string }
 > = {
-  "Meta Ad": { icon: Megaphone, cls: "bg-primary/20 text-lavender border-primary/40" },
+  "Meta Ad": { icon: Megaphone, cls: "bg-primary/20 text-sky border-primary/40" },
   Outbound: { icon: Send, cls: "bg-secondary text-foreground border-border" },
   Manual: { icon: UserSquare2, cls: "bg-secondary text-foreground border-border" },
   Website: { icon: Globe, cls: "bg-secondary text-foreground border-border" },

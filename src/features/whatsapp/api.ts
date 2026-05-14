@@ -1420,6 +1420,17 @@ type OutreachQueueRow = {
   sent_at: string | null;
   error_message: string | null;
   metadata: Json;
+  // Extended columns added in migration 20260514200000
+  niche: string | null;
+  location: string | null;
+  template_name: string | null;
+  template_params: Record<string, string> | null;
+  draft_preview: string | null;
+  ai_observation: string | null;
+  risk_score: number | null;
+  compliance_status: string | null;
+  created_by: string | null;
+  rejection_reason: string | null;
 };
 
 function toQueueStatus(status: string): QueueStatus {
@@ -1447,17 +1458,17 @@ function mapOutreachQueueItem(row: OutreachQueueRow): OutreachQueueItem {
     business_name: row.company_name ?? "",
     contact_name: row.contact_name ?? "",
     phone_number: row.phone_number ?? "",
-    niche: "",
-    location: "",
-    template_name: "",
-    template_params: {},
-    draft_preview: row.drafted_message ?? "",
-    ai_observation: "",
-    risk_score: row.quality_score ?? 0,
-    compliance_status: "ok",
+    niche: row.niche ?? "",
+    location: row.location ?? "",
+    template_name: row.template_name ?? "",
+    template_params: row.template_params ?? {},
+    draft_preview: row.draft_preview ?? row.drafted_message ?? "",
+    ai_observation: row.ai_observation ?? "",
+    risk_score: row.risk_score ?? row.quality_score ?? 0,
+    compliance_status: (row.compliance_status as "ok" | "warning" | "blocked") ?? "ok",
     status: toQueueStatus(row.status),
     created_at: row.created_at,
-    created_by: "",
+    created_by: row.created_by ?? "",
     approved_by: row.approved_by ?? undefined,
     approved_at: row.approved_at ?? undefined,
     sent_at: row.sent_at ?? undefined,
@@ -1466,9 +1477,8 @@ function mapOutreachQueueItem(row: OutreachQueueRow): OutreachQueueItem {
 }
 
 export async function getOutreachQueue(): Promise<OutreachQueueItem[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
-    .from("whatsapp_outreach_queue")
+  const { data, error } = await supabase
+    .from("whatsapp_outreach_queue" as any)
     .select("*")
     .eq("status", "pending_review")
     .order("created_at", { ascending: false });
@@ -1488,9 +1498,8 @@ export async function approveOutreachQueueItem(id: string) {
     // No auth session — proceed with null approved_by
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
-    .from("whatsapp_outreach_queue")
+  const { data, error } = await supabase
+    .from("whatsapp_outreach_queue" as any)
     .update({
       status: "approved",
       approved_at: new Date().toISOString(),
@@ -1521,12 +1530,11 @@ export async function approveOutreachQueueItem(id: string) {
 }
 
 export async function rejectOutreachQueueItem(id: string, reason?: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
-    .from("whatsapp_outreach_queue")
+  const { error } = await supabase
+    .from("whatsapp_outreach_queue" as any)
     .update({
       status: "rejected",
-      ...(reason?.trim() ? { metadata: { rejection_reason: reason.trim() } } : {}),
+      ...(reason?.trim() ? { rejection_reason: reason.trim() } : {}),
     })
     .eq("id", id);
 

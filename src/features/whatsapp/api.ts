@@ -1599,14 +1599,10 @@ export async function updateConversationStage(
   }
 
   if (conv.prospect_id) {
-    const { error: prospectError } = await supabase
-      .from("prospects")
-      .update({ status: crmStageToProspectStatus(stage) })
-      .eq("id", conv.prospect_id);
-
-    if (prospectError) {
-      throw new Error(prospectError.message);
-    }
+    // Route through AICOS Edge Function — Outreach-System must not write to prospects directly
+    await supabase.functions.invoke("update-prospect-from-conversation", {
+      body: { conversation_id: conversationId, stage: dbStage },
+    });
   }
 }
 
@@ -1640,14 +1636,8 @@ export async function markProspectDoNotContact(
     throw new Error(suppressError.message);
   }
 
-  const { error: prospectError } = await supabase
-    .from("prospects")
-    .update({ status: "do_not_contact" })
-    .eq("id", prospectId);
-
-  if (prospectError) {
-    throw new Error(prospectError.message);
-  }
+  // Prospect status is set to 'do_not_contact' automatically via the
+  // handle_suppression_insert DB trigger — no direct write needed here.
 }
 
 // ─── Internal notes ───────────────────────────────────────────────

@@ -47,15 +47,15 @@ export function ConversationCard({ conversation, active, onSelect }: Props) {
             )}
           </div>
           <p className="truncate text-xs text-muted-foreground mt-0.5">
-            {c.contact_name} · {c.phone_number}
+            {c.contact_name} · <span className="font-mono">{c.phone_number}</span>
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-[10px] text-muted-foreground">
+          <span className="font-mono text-[10px] text-muted-foreground">
             {timeAgo(c.last_message_at)}
           </span>
           {c.unread_count > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-gradient-brand text-primary-foreground text-[10px] font-semibold px-1.5">
+            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-gradient-brand text-primary-foreground text-[10px] font-mono font-semibold px-1.5">
               {c.unread_count}
             </span>
           )}

@@ -79,7 +79,7 @@ export function ConversationThread({
             )}
           </div>
           <p className="text-xs text-muted-foreground truncate">
-            {c.contact_name} · {c.phone_number}
+            {c.contact_name} · <span className="font-mono">{c.phone_number}</span>
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <CrmStageBadge stage={c.crm_stage} />
@@ -136,7 +136,7 @@ export function ConversationThread({
 
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto scrollbar-thin px-4 py-4 bg-[radial-gradient(ellipse_at_top,hsl(266_100%_18%_/_0.12),transparent_60%)]"
+        className="flex-1 overflow-y-auto scrollbar-thin px-4 py-4 bg-[radial-gradient(ellipse_at_top,hsl(199_93%_60%_/_0.08),transparent_60%)]"
       >
         {loading ? (
           <div className="space-y-2">

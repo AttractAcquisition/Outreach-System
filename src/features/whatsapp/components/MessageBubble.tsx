@@ -93,10 +93,10 @@ export function MessageBubble({ message }: { message: WhatsAppMessage }) {
             isOut ? "text-primary-foreground/80" : "text-muted-foreground",
           )}
         >
-          <span>{timeShort(message.created_at)}</span>
+          <span className="font-mono">{timeShort(message.created_at)}</span>
           {isOut && (
             <>
-              <span>{message.status}</span>
+              <span className="font-mono">{message.status}</span>
               <StatusIcon status={message.status} />
             </>
           )}

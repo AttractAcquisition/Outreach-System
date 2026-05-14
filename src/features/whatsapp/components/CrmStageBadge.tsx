@@ -27,7 +27,7 @@ export function CrmStageBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border font-medium whitespace-nowrap",
+        "inline-flex items-center rounded-full border font-medium font-mono whitespace-nowrap",
         size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs",
         stageStyles[stage],
       )}

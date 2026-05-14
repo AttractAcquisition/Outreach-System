@@ -167,3 +167,19 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* Global scrollbar — 6px, sky-blue-tinted */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(224 39% 7%); }
+::-webkit-scrollbar-thumb { background: hsl(224 25% 20%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(199 93% 60% / 0.4); }
+
+/* Page fade — route / panel transition */
+.page-fade {
+  animation: pageFade 0.15s ease both;
+}
+
+@keyframes pageFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
